@@ -1,2 +1,6 @@
 .build/
 .DS_Store
+
+# Xcode-generated Swift package workspace and user data
+/.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+xcuserdata/

@@ -14,11 +14,14 @@ struct WorkspaceState: Decodable, Sendable {
     struct Workspace: Decodable, Sendable {
         let position: Int
         let name: String?
+        let kind: String?
         let active: Bool
         let applications: [String]
+        let focusedApplication: String?
         let windowCount: Int
 
         var label: String {
+            if kind == "trailing" { return "+" }
             guard let name, !name.isEmpty else { return String(position) }
             return name
         }
@@ -76,13 +79,29 @@ enum DefiClient {
     }
 }
 
+private let activeWorkspaceBorderColor = NSColor.systemBlue.withAlphaComponent(0.65)
+private let workspaceButtonHeight: CGFloat = 22
+
+@MainActor
+private final class AppIconSlot: NSView {
+    var showsFocus = false
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard showsFocus else { return }
+
+        NSColor.systemBlue.withAlphaComponent(0.55).setFill()
+        NSBezierPath(rect: bounds).fill()
+    }
+}
+
 @MainActor
 private final class WorkspaceButton: NSButton {
     let display: Int
     let position: Int
     let isActive: Bool
 
-    init(workspace: WorkspaceState.Workspace, display: Int, icons: [NSImage]) {
+    init(workspace: WorkspaceState.Workspace, display: Int, icons: [(bundleID: String, image: NSImage)]) {
         self.display = display
         position = workspace.position
         isActive = workspace.active
@@ -93,35 +112,56 @@ private final class WorkspaceButton: NSButton {
         wantsLayer = true
         layer?.cornerRadius = 5
         layer?.borderWidth = 1
-        layer?.borderColor = (workspace.active ? NSColor.systemBlue : NSColor.systemGray).withAlphaComponent(0.65).cgColor
+        layer?.borderColor = (workspace.active ? activeWorkspaceBorderColor : NSColor.systemGray.withAlphaComponent(0.65)).cgColor
         layer?.backgroundColor = (workspace.active ? NSColor.systemBlue : NSColor.systemGray).withAlphaComponent(0.20).cgColor
 
         let label = NSTextField(labelWithString: workspace.label)
         label.font = .systemFont(ofSize: 12, weight: workspace.active ? .semibold : .medium)
+        let horizontalInset: CGFloat = 6
+        let iconSlotWidth: CGFloat = 18
+        let labelSpacing: CGFloat = 2
         let images = icons.map { icon in
-            let view = NSImageView(image: icon)
+            let view = NSImageView(image: icon.image)
             view.imageScaling = .scaleProportionallyUpOrDown
+            view.translatesAutoresizingMaskIntoConstraints = false
+            let slot = AppIconSlot(frame: .zero)
+            slot.showsFocus = icon.bundleID == workspace.focusedApplication
+            slot.addSubview(view)
             NSLayoutConstraint.activate([
-                view.widthAnchor.constraint(equalToConstant: 14),
+                slot.widthAnchor.constraint(equalToConstant: iconSlotWidth),
+                slot.heightAnchor.constraint(equalToConstant: workspaceButtonHeight),
+                view.leadingAnchor.constraint(equalTo: slot.leadingAnchor, constant: 2),
+                view.trailingAnchor.constraint(equalTo: slot.trailingAnchor, constant: -2),
+                view.centerYAnchor.constraint(equalTo: slot.centerYAnchor),
                 view.heightAnchor.constraint(equalToConstant: 14)
             ])
-            return view
+            return slot
         }
         let content = NSStackView(views: [label] + images)
         content.orientation = .horizontal
         content.alignment = .centerY
-        content.spacing = 4
+        content.spacing = 0
+        content.setCustomSpacing(labelSpacing, after: label)
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)
+        let iconWidth = icons.isEmpty ? 0 : labelSpacing + CGFloat(icons.count) * iconSlotWidth
+        // Keep the frame tied to its contents when the status bar lays out the row again.
+        let buttonWidth = ceil(label.intrinsicContentSize.width) + iconWidth + 2 * horizontalInset
         NSLayoutConstraint.activate([
-            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
-            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: horizontalInset),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -horizontalInset),
             content.centerYAnchor.constraint(equalTo: centerYAnchor),
-            heightAnchor.constraint(equalToConstant: 22)
+            widthAnchor.constraint(equalToConstant: buttonWidth),
+            heightAnchor.constraint(equalToConstant: workspaceButtonHeight)
         ])
 
-        toolTip = "\(workspace.label) · ウインドウ \(workspace.windowCount) 件"
+        toolTip = "\(workspace.label) · ウインドウ \(workspace.windowCount) 枚"
         setAccessibilityLabel(workspace.label)
+        if let bundleID = workspace.focusedApplication, icons.contains(where: { $0.bundleID == bundleID }) {
+            let name = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName
+                ?? bundleID
+            setAccessibilityValue("\(name)、選択中")
+        }
         setAccessibilityHelp(workspace.active ? "アクティブなワークスペース" : "このワークスペースに切り替え")
     }
 
@@ -286,8 +326,8 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let monitor = focusedMonitor else { return }
         for workspace in monitor.workspaces.sorted(by: { $0.position < $1.position }) {
             var seen = Set<String>()
-            let appIcons = workspace.active
-                ? workspace.applications.filter { seen.insert($0).inserted }.map { icon(for: $0) }
+            let appIcons: [(bundleID: String, image: NSImage)] = workspace.active
+                ? workspace.applications.filter { seen.insert($0).inserted }.map { ($0, icon(for: $0)) }
                 : []
             let button = WorkspaceButton(workspace: workspace, display: monitor.display, icons: appIcons)
             button.target = self

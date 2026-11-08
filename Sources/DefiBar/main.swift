@@ -91,8 +91,16 @@ private final class AppIconSlot: NSView {
         super.draw(dirtyRect)
         guard showsFocus else { return }
 
-        NSColor.systemBlue.withAlphaComponent(0.55).setFill()
-        NSBezierPath(rect: bounds).fill()
+        let bump = NSBezierPath()
+        bump.appendArc(
+            withCenter: NSPoint(x: bounds.midX, y: bounds.minY + 1),
+            radius: 2,
+            startAngle: 0,
+            endAngle: 180
+        )
+        bump.close()
+        activeWorkspaceBorderColor.setFill()
+        bump.fill()
     }
 }
 
@@ -149,9 +157,8 @@ private final class WorkspaceButton: NSButton {
         content.spacing = 0
         content.setCustomSpacing(labelSpacing, after: label)
         let isTrailing = workspace.kind == "trailing"
-        let symbol = isTrailing ? "plus" : (workspace.name?.isEmpty == false ? workspace.icon : nil)
         var workspaceLabelWidth = ceil(label.intrinsicContentSize.width)
-        if let symbol,
+        if !isTrailing, workspace.name?.isEmpty == false, let symbol = workspace.icon,
            let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
             let view = NSImageView(image: image)
             let size: CGFloat = 14
@@ -162,7 +169,7 @@ private final class WorkspaceButton: NSButton {
                 view.widthAnchor.constraint(equalToConstant: size),
                 view.heightAnchor.constraint(equalToConstant: size)
             ])
-            if isTrailing || !showsWorkspaceNames {
+            if !showsWorkspaceNames {
                 content.removeArrangedSubview(label)
                 label.removeFromSuperview()
                 content.insertArrangedSubview(view, at: 0)

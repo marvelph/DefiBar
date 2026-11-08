@@ -14,6 +14,7 @@ struct WorkspaceState: Decodable, Sendable {
     struct Workspace: Decodable, Sendable {
         let position: Int
         let name: String?
+        let icon: String?
         let kind: String?
         let active: Bool
         let applications: [String]
@@ -142,11 +143,37 @@ private final class WorkspaceButton: NSButton {
         content.alignment = .centerY
         content.spacing = 0
         content.setCustomSpacing(labelSpacing, after: label)
+        let isTrailing = workspace.kind == "trailing"
+        let symbol = isTrailing ? "plus" : (workspace.name?.isEmpty == false ? workspace.icon : nil)
+        var workspaceLabelWidth = ceil(label.intrinsicContentSize.width)
+        if let symbol,
+           let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
+            let view = NSImageView(image: image)
+            let size: CGFloat = 14
+            let spacing: CGFloat = 4
+            view.imageScaling = .scaleProportionallyUpOrDown
+            view.contentTintColor = .labelColor
+            NSLayoutConstraint.activate([
+                view.widthAnchor.constraint(equalToConstant: size),
+                view.heightAnchor.constraint(equalToConstant: size)
+            ])
+            if isTrailing {
+                content.removeArrangedSubview(label)
+                label.removeFromSuperview()
+                content.insertArrangedSubview(view, at: 0)
+                content.setCustomSpacing(labelSpacing, after: view)
+                workspaceLabelWidth = size
+            } else {
+                content.insertArrangedSubview(view, at: 0)
+                content.setCustomSpacing(spacing, after: view)
+                workspaceLabelWidth += size + spacing
+            }
+        }
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)
         let iconWidth = icons.isEmpty ? 0 : labelSpacing + CGFloat(icons.count) * iconSlotWidth
         // Keep the frame tied to its contents when the status bar lays out the row again.
-        let buttonWidth = ceil(label.intrinsicContentSize.width) + iconWidth + 2 * horizontalInset
+        let buttonWidth = workspaceLabelWidth + iconWidth + 2 * horizontalInset
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: horizontalInset),
             content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -horizontalInset),
@@ -239,7 +266,12 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func workspaceChanged(_ notification: Notification) {
         let payload = (notification.object as? String)
             ?? (notification.userInfo?["json"] as? String)
-        guard let payload, let updated = try? DefiClient.decode(Data(payload.utf8)) else {
+        let data = payload.map { Data($0.utf8) }
+            ?? notification.userInfo.flatMap { info in
+                guard JSONSerialization.isValidJSONObject(info) else { return nil }
+                return try? JSONSerialization.data(withJSONObject: info)
+            }
+        guard let data, let updated = try? DefiClient.decode(data) else {
             refresh()
             return
         }
@@ -390,16 +422,15 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func quitDefi() {
+    @objc private func openDefiSettings() {
         Task {
             let result = await Task.detached(priority: .userInitiated) {
-                Result { try DefiClient.run(["quit"]) }
+                Result { try DefiClient.run(["open-settings"]) }
             }.value
             if case .failure(let error) = result {
-                NSLog("DefiBar: could not quit Defi: %@", String(describing: error))
+                NSLog("DefiBar: could not open Defi settings: %@", String(describing: error))
                 NSSound.beep()
             }
-            refresh()
         }
     }
 
@@ -412,8 +443,8 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             statusItem.isEnabled = false
             menu.addItem(.separator())
         }
-        let quitDefiItem = menu.addItem(withTitle: "Defi を終了", action: #selector(quitDefi), keyEquivalent: "")
-        quitDefiItem.target = self
+        let settings = menu.addItem(withTitle: "Defi の設定…", action: #selector(openDefiSettings), keyEquivalent: "")
+        settings.target = self
         menu.addItem(.separator())
         let quit = menu.addItem(withTitle: "DefiBar を終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp

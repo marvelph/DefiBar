@@ -113,8 +113,7 @@ private final class WorkspaceButton: NSButton {
     init(
         workspace: WorkspaceState.Workspace,
         display: Int,
-        icons: [(bundleID: String, image: NSImage)],
-        showsWorkspaceNames: Bool
+        icons: [(bundleID: String, image: NSImage)]
     ) {
         self.display = display
         position = workspace.position
@@ -169,17 +168,9 @@ private final class WorkspaceButton: NSButton {
                 view.widthAnchor.constraint(equalToConstant: size),
                 view.heightAnchor.constraint(equalToConstant: size)
             ])
-            if !showsWorkspaceNames {
-                content.removeArrangedSubview(label)
-                label.removeFromSuperview()
-                content.insertArrangedSubview(view, at: 0)
-                content.setCustomSpacing(labelSpacing, after: view)
-                workspaceLabelWidth = size
-            } else {
-                content.insertArrangedSubview(view, at: 0)
-                content.setCustomSpacing(spacing, after: view)
-                workspaceLabelWidth += size + spacing
-            }
+            content.insertArrangedSubview(view, at: 0)
+            content.setCustomSpacing(spacing, after: view)
+            workspaceLabelWidth += size + spacing
         }
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)
@@ -232,7 +223,6 @@ private final class StatusRow: NSStackView {
 
 @MainActor
 final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    private static let showsWorkspaceNamesKey = "showsWorkspaceNames"
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let row = StatusRow()
     private var state: WorkspaceState?
@@ -242,9 +232,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var switching = false
     private var lastClick: (display: Int, position: Int, time: CFTimeInterval)?
     private var icons: [String: NSImage] = [:]
-    private var showsWorkspaceNames: Bool {
-        UserDefaults.standard.object(forKey: Self.showsWorkspaceNamesKey) as? Bool ?? true
-    }
     private var message = "Defi に接続中…"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -373,15 +360,13 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusButton.title = ""
         statusButton.setAccessibilityLabel("DefiBar")
         guard let monitor = focusedMonitor else { return }
-        let showsWorkspaceNames = self.showsWorkspaceNames
         for workspace in monitor.workspaces.sorted(by: { $0.position < $1.position }) {
             var seen = Set<String>()
             let appIcons: [(bundleID: String, image: NSImage)] = workspace.active
                 ? workspace.applications.filter { seen.insert($0).inserted }.map { ($0, icon(for: $0)) }
                 : []
             let button = WorkspaceButton(
-                workspace: workspace, display: monitor.display, icons: appIcons,
-                showsWorkspaceNames: showsWorkspaceNames
+                workspace: workspace, display: monitor.display, icons: appIcons
             )
             button.target = self
             button.action = #selector(switchWorkspace(_:))
@@ -443,11 +428,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func toggleWorkspaceNames() {
-        UserDefaults.standard.set(!showsWorkspaceNames, forKey: Self.showsWorkspaceNamesKey)
-        render()
-    }
-
     @objc private func openDefiSettings() {
         Task {
             let result = await Task.detached(priority: .userInitiated) {
@@ -469,11 +449,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             statusItem.isEnabled = false
             menu.addItem(.separator())
         }
-        let workspaceNames = menu.addItem(
-            withTitle: "ワークスペース名を表示", action: #selector(toggleWorkspaceNames), keyEquivalent: ""
-        )
-        workspaceNames.target = self
-        workspaceNames.state = showsWorkspaceNames ? .on : .off
         let settings = menu.addItem(withTitle: "Defi の設定…", action: #selector(openDefiSettings), keyEquivalent: "")
         settings.target = self
         menu.addItem(.separator())

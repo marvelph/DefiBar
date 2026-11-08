@@ -131,6 +131,7 @@ private final class WorkspaceButton: NSButton {
         let label = NSTextField(labelWithString: workspace.label)
         label.font = .systemFont(ofSize: 12, weight: workspace.active ? .semibold : .medium)
         let horizontalInset: CGFloat = 6
+        let iconSize: CGFloat = 14
         let iconSlotWidth: CGFloat = 18
         let labelSpacing: CGFloat = 2
         let images = icons.map { icon in
@@ -143,10 +144,10 @@ private final class WorkspaceButton: NSButton {
             NSLayoutConstraint.activate([
                 slot.widthAnchor.constraint(equalToConstant: iconSlotWidth),
                 slot.heightAnchor.constraint(equalToConstant: workspaceButtonHeight),
-                view.leadingAnchor.constraint(equalTo: slot.leadingAnchor, constant: 2),
-                view.trailingAnchor.constraint(equalTo: slot.trailingAnchor, constant: -2),
+                view.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
                 view.centerYAnchor.constraint(equalTo: slot.centerYAnchor),
-                view.heightAnchor.constraint(equalToConstant: 14)
+                view.widthAnchor.constraint(equalToConstant: iconSize),
+                view.heightAnchor.constraint(equalToConstant: iconSize)
             ])
             return slot
         }
@@ -160,17 +161,16 @@ private final class WorkspaceButton: NSButton {
         if !isTrailing, workspace.name?.isEmpty == false, let symbol = workspace.icon,
            let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
             let view = NSImageView(image: image)
-            let size: CGFloat = 14
             let spacing: CGFloat = 4
             view.imageScaling = .scaleProportionallyUpOrDown
             view.contentTintColor = .labelColor
             NSLayoutConstraint.activate([
-                view.widthAnchor.constraint(equalToConstant: size),
-                view.heightAnchor.constraint(equalToConstant: size)
+                view.widthAnchor.constraint(equalToConstant: iconSize),
+                view.heightAnchor.constraint(equalToConstant: iconSize)
             ])
             content.insertArrangedSubview(view, at: 0)
             content.setCustomSpacing(spacing, after: view)
-            workspaceLabelWidth += size + spacing
+            workspaceLabelWidth += iconSize + spacing
         }
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)
@@ -223,6 +223,8 @@ private final class StatusRow: NSStackView {
 
 @MainActor
 final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    // The bundle identifier and notification prefix differ across Defi versions.
+    private static let defiIdentifiers = ["com.qeude.defi", "com.quentin.defi"]
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let row = StatusRow()
     private var state: WorkspaceState?
@@ -239,7 +241,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         button.target = self
         button.action = #selector(statusItemClicked(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        button.setAccessibilityLabel("DefiBar")
         button.setAccessibilityHelp("右クリックで DefiBar メニューを開く")
         row.orientation = .horizontal
         row.alignment = .centerY
@@ -252,8 +253,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         render()
 
         let center = DistributedNotificationCenter.default()
-        // The notification prefix differs across Defi versions.
-        for prefix in ["com.qeude.defi", "com.quentin.defi"] {
+        for prefix in Self.defiIdentifiers {
             center.addObserver(
                 self, selector: #selector(workspaceChanged(_:)),
                 name: Notification.Name("\(prefix).workspaceChanged"),
@@ -287,7 +287,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func applicationTerminated(_ notification: Notification) {
         let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-        guard let identifier = app?.bundleIdentifier, ["com.qeude.defi", "com.quentin.defi"].contains(identifier) else { return }
+        guard let identifier = app?.bundleIdentifier, Self.defiIdentifiers.contains(identifier) else { return }
         refresh()
     }
 
@@ -306,7 +306,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 switch result {
                 case .success(let updated):
                     state = updated
-                    message = "ワークスペースがありません"
                 case .failure(DefiClient.Failure.cliMissing):
                     state = nil
                     message = "Defi CLI が見つかりません"

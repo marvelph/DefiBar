@@ -257,6 +257,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 4
+        row.edgeInsets = NSEdgeInsets(top: 0, left: 2, bottom: 0, right: 2)
         row.autoresizingMask = [.width, .height]
         row.frame = button.bounds
         button.addSubview(row)
@@ -389,7 +390,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 button.showClickFeedback(startedAt: lastClick.time)
             }
         }
-        item.length = ceil(row.fittingSize.width) + 4
+        item.length = ceil(row.fittingSize.width)
     }
 
     private func icon(for bundleID: String) -> NSImage {

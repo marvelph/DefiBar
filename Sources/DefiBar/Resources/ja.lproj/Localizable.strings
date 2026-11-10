@@ -1,0 +1,10 @@
+"workspace.selectedApp" = "%@、選択中";
+"workspace.active" = "アクティブなワークスペース";
+"workspace.switch" = "このワークスペースに切り替え";
+"status.connecting" = "Defi に接続中…";
+"status.menuHelp" = "右クリックで DefiBar メニューを開く";
+"status.cliMissing" = "Defi CLI が見つかりません";
+"status.connectionFailed" = "Defi に接続できません";
+"status.noWorkspaces" = "ワークスペースがありません";
+"menu.settings" = "Defi の設定…";
+"menu.quit" = "DefiBar を終了";

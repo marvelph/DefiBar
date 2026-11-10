@@ -1,6 +1,11 @@
 import AppKit
 import UniformTypeIdentifiers
 
+private func localized(_ key: String) -> String {
+    let bundle = Bundle.main.bundleURL.pathExtension == "app" ? Bundle.main : Bundle.module
+    return bundle.localizedString(forKey: key, value: nil, table: nil)
+}
+
 struct WorkspaceState: Decodable, Sendable {
     let focusedMonitorID: UInt32?
 
@@ -185,14 +190,15 @@ private final class WorkspaceButton: NSButton {
             heightAnchor.constraint(equalToConstant: workspaceButtonHeight)
         ])
 
-        toolTip = "\(workspace.label) · ウインドウ \(workspace.windowCount) 枚"
+        let windowCount = String.localizedStringWithFormat(localized("workspace.windowCount"), workspace.windowCount)
+        toolTip = "\(workspace.label) · \(windowCount)"
         setAccessibilityLabel(workspace.label)
         if let bundleID = workspace.focusedApplication, icons.contains(where: { $0.bundleID == bundleID }) {
             let name = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName
                 ?? bundleID
-            setAccessibilityValue("\(name)、選択中")
+            setAccessibilityValue(String(format: localized("workspace.selectedApp"), name))
         }
-        setAccessibilityHelp(workspace.active ? "アクティブなワークスペース" : "このワークスペースに切り替え")
+        setAccessibilityHelp(workspace.active ? localized("workspace.active") : localized("workspace.switch"))
     }
 
     required init?(coder: NSCoder) { nil }
@@ -234,14 +240,14 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var switching = false
     private var lastClick: (display: Int, position: Int, time: CFTimeInterval)?
     private var icons: [String: NSImage] = [:]
-    private var message = "Defi に接続中…"
+    private var message = localized("status.connecting")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard let button = item.button else { return }
         button.target = self
         button.action = #selector(statusItemClicked(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        button.setAccessibilityHelp("右クリックで DefiBar メニューを開く")
+        button.setAccessibilityHelp(localized("status.menuHelp"))
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 4
@@ -308,10 +314,10 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     state = updated
                 case .failure(DefiClient.Failure.cliMissing):
                     state = nil
-                    message = "Defi CLI が見つかりません"
+                    message = localized("status.cliMissing")
                 case .failure:
                     state = nil
-                    message = "Defi に接続できません"
+                    message = localized("status.connectionFailed")
                 }
                 render()
             }
@@ -331,7 +337,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var unavailableStatus: String? {
         guard state != nil else { return message }
-        guard focusedMonitor?.workspaces.isEmpty == false else { return "ワークスペースがありません" }
+        guard focusedMonitor?.workspaces.isEmpty == false else { return localized("status.noWorkspaces") }
         return nil
     }
 
@@ -448,10 +454,10 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             statusItem.isEnabled = false
             menu.addItem(.separator())
         }
-        let settings = menu.addItem(withTitle: "Defi の設定…", action: #selector(openDefiSettings), keyEquivalent: "")
+        let settings = menu.addItem(withTitle: localized("menu.settings"), action: #selector(openDefiSettings), keyEquivalent: "")
         settings.target = self
         menu.addItem(.separator())
-        let quit = menu.addItem(withTitle: "DefiBar を終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = menu.addItem(withTitle: localized("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
         item.menu = menu
         button.performClick(nil)

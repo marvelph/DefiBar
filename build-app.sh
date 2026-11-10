@@ -8,11 +8,14 @@ app="$PWD/.build/DefiBar.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin_dir/DefiBar" "$app/Contents/MacOS/DefiBar"
 cp Support/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
+cp -R Sources/DefiBar/Resources/*.lproj "$app/Contents/Resources/"
 cat > "$app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
     <key>CFBundleIdentifier</key>
     <string>org.programmershigh.defibar</string>
     <key>CFBundleName</key>

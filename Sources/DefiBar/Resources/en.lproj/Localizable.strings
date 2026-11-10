@@ -1,0 +1,10 @@
+"workspace.selectedApp" = "%@, selected";
+"workspace.active" = "Active workspace";
+"workspace.switch" = "Switch to this workspace";
+"status.connecting" = "Connecting to Defi…";
+"status.menuHelp" = "Right-click to open the DefiBar menu";
+"status.cliMissing" = "Defi CLI not found";
+"status.connectionFailed" = "Could not connect to Defi";
+"status.noWorkspaces" = "No workspaces available";
+"menu.settings" = "Defi Settings…";
+"menu.quit" = "Quit DefiBar";

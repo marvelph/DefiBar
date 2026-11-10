@@ -4,6 +4,8 @@
 
 DefiBar displays [Defi](https://github.com/qeude/Defi) workspaces in a single row in the macOS menu bar. It shows workspaces for the display that Defi reports as focused. Named workspaces show their names, and unnamed workspaces show their numbers.
 
+![DefiBar in the macOS menu bar, with the dev workspace active and its app icons visible](docs/defibar-screenshot.png)
+
 - Click a workspace button to switch to that workspace on the display.
 - The active workspace has a distinct background color and shows one icon per app in that workspace to the right of its label.
 - Right-click the DefiBar area to open Defi settings or quit DefiBar. If workspaces are unavailable, DefiBar shows a grid icon. The first item in the right-click menu shows the current status.

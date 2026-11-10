@@ -10,7 +10,7 @@
 
 ## ビルドと起動
 
-macOS 15.4 以降、Swift 5.9 以降、および `defi list-workspaces --json` に対応する Defi が必要です。プロジェクトのディレクトリで次を実行してください。Defi と DefiBar はどちらを先に起動しても構いません。
+macOS 15.4 以降、Swift 5.9 以降、および Defi 0.9 以降が必要です。プロジェクトのディレクトリで次を実行してください。Defi と DefiBar はどちらを先に起動しても構いません。
 
 ```sh
 ./build-app.sh

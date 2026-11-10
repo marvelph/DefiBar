@@ -10,7 +10,7 @@ DefiBar displays [Defi](https://github.com/qeude/Defi) workspaces in a single ro
 
 ## Build and run
 
-You need macOS 15.4 or later, Swift 5.9 or later, and a version of Defi that supports `defi list-workspaces --json`. Run the following from the project directory. You can start Defi and DefiBar in either order.
+You need macOS 15.4 or later, Swift 5.9 or later, and Defi 0.9 or later. Run the following from the project directory. You can start Defi and DefiBar in either order.
 
 ```sh
 ./build-app.sh

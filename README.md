@@ -1,30 +1,32 @@
 # DefiBar
 
-[Defi](https://github.com/qeude/Defi) のワークスペースを macOS のメニューバーに横一列で表示します。表示対象は Defi がフォーカス中と報告するディスプレイです。名前のあるワークスペースには名前を、名前のないワークスペースには番号を表示します。
+**English** · [日本語](README.ja.md)
 
-- ワークスペースのボタンをクリックすると、そのディスプレイ上で切り替わります。
-- アクティブなワークスペースは背景色で区別し、名前の右に所属アプリのアイコンをアプリごとに1つ表示します。
-- DefiBar の表示領域を右クリックすると、Defi の設定を開いたり、DefiBar を終了したりできます。ワークスペースを表示できないときはグリッドのアイコンが表示され、右クリックメニューの先頭で状態を確認できます。
+DefiBar displays [Defi](https://github.com/qeude/Defi) workspaces in a single row in the macOS menu bar. It shows workspaces for the display that Defi reports as focused. Named workspaces show their names, and unnamed workspaces show their numbers.
 
-## ビルドと起動
+- Click a workspace button to switch to that workspace on the display.
+- The active workspace has a distinct background color and shows one icon per app in that workspace to the right of its label.
+- Right-click the DefiBar area to open Defi settings or quit DefiBar. If workspaces are unavailable, DefiBar shows a grid icon. The first item in the right-click menu shows the current status.
 
-macOS 15.4 以降、Swift 5.9 以降、および `defi list-workspaces --json` に対応する Defi が必要です。プロジェクトのディレクトリで次を実行してください。Defi と DefiBar はどちらを先に起動しても構いません。
+## Build and run
+
+You need macOS 15.4 or later, Swift 5.9 or later, and a version of Defi that supports `defi list-workspaces --json`. Run the following from the project directory. You can start Defi and DefiBar in either order.
 
 ```sh
 ./build-app.sh
 open .build/DefiBar.app
 ```
 
-DefiBar は `~/Applications/Defi.app`、`/Applications/Defi.app`、実行時の `PATH` の順に CLI を探します。別の場所にある CLI を指定する場合は、アプリを終了してから絶対パスを使って起動できます。
+DefiBar looks for the CLI in `~/Applications/Defi.app`, `/Applications/Defi.app`, and then on its runtime `PATH`. To use a CLI in another location, quit DefiBar and relaunch it with the absolute path to the CLI.
 
 ```sh
 DEFI_BIN="/path/to/defi" .build/DefiBar.app/Contents/MacOS/DefiBar
 ```
 
-DefiBar の起動時に Defi CLI で初期状態を取得します。Defi がまだ応答できない場合は、Defi のワークスペース変更通知を待ちます。通知に含まれる JSON で表示を更新します。通知から状態を取得できない場合は CLI で再取得します。SketchyBar 本体のインストールは不要です。
+On startup, DefiBar uses the Defi CLI to fetch the initial workspace state. If Defi cannot respond yet, DefiBar waits for a workspace change notification from Defi. It updates the display using the JSON in the notification. If the notification does not provide the workspace state, DefiBar fetches it again through the CLI. SketchyBar itself is optional.
 
-連携仕様は [Defi の SketchyBar 連携ドキュメント](https://github.com/qeude/Defi/blob/main/contrib/sketchybar/README.md)を参照しています。
+For integration details, see [Defi’s SketchyBar integration documentation](https://github.com/qeude/Defi/blob/main/contrib/sketchybar/README.md).
 
 ### MIT License
 
-DefiBar は [MIT License](LICENSE) で公開しています。
+DefiBar is released under the [MIT License](LICENSE).

@@ -14,7 +14,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>local.defibar.app</string>
+    <string>org.programmershigh.defibar</string>
     <key>CFBundleName</key>
     <string>DefiBar</string>
     <key>CFBundleExecutable</key>

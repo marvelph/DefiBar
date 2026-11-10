@@ -1,6 +1,6 @@
 # DefiBar
 
-Defi のワークスペースを macOS のメニューバーに横一列で表示します。表示対象は Defi がフォーカス中と報告するディスプレイです。名前のあるワークスペースには名前を、名前のないワークスペースには番号を表示します。
+[Defi](https://github.com/qeude/Defi) のワークスペースを macOS のメニューバーに横一列で表示します。表示対象は Defi がフォーカス中と報告するディスプレイです。名前のあるワークスペースには名前を、名前のないワークスペースには番号を表示します。
 
 - ワークスペースのボタンをクリックすると、そのディスプレイ上で切り替わります。
 - アクティブなワークスペースは背景色で区別し、名前の右に所属アプリのアイコンをアプリごとに1つ表示します。
@@ -24,3 +24,7 @@ DEFI_BIN="/path/to/defi" .build/DefiBar.app/Contents/MacOS/DefiBar
 DefiBar の起動時に Defi CLI で初期状態を取得します。Defi がまだ応答できない場合は、Defi のワークスペース変更通知を待ちます。通知に含まれる JSON で表示を更新します。通知から状態を取得できない場合は CLI で再取得します。SketchyBar 本体のインストールは不要です。
 
 連携仕様は [Defi の SketchyBar 連携ドキュメント](https://github.com/qeude/Defi/blob/main/contrib/sketchybar/README.md)を参照しています。
+
+### MIT License
+
+DefiBar は [MIT License](LICENSE) で公開しています。

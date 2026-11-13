@@ -220,10 +220,12 @@ private final class WorkspaceButton: NSButton {
 
     func showClickFeedback(startedAt: CFTimeInterval) {
         let duration = 0.40
-        guard let layer, CACurrentMediaTime() - startedAt < duration else { return }
-        let feedback = CAKeyframeAnimation(keyPath: "borderWidth")
-        feedback.values = [3.0, 3.0, layer.borderWidth]
-        feedback.keyTimes = [0, 0.60, 1]
+        guard CACurrentMediaTime() - startedAt < duration,
+              let layer, let borderColor = layer.borderColor,
+              let backgroundColor = layer.backgroundColor else { return }
+        let feedback = CAKeyframeAnimation(keyPath: "backgroundColor")
+        feedback.values = [borderColor, borderColor, backgroundColor]
+        feedback.keyTimes = [0, 0.20, 1]
         feedback.beginTime = layer.convertTime(startedAt, from: nil)
         feedback.duration = duration
         layer.add(feedback, forKey: "clickFeedback")

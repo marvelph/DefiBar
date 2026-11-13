@@ -135,8 +135,7 @@ private final class WorkspaceButton: NSButton {
         wantsLayer = true
         layer?.cornerRadius = 5
         layer?.borderWidth = 1
-        layer?.borderColor = (workspace.active ? activeWorkspaceBorderColor : NSColor.systemGray.withAlphaComponent(0.65)).cgColor
-        layer?.backgroundColor = (workspace.active ? NSColor.systemBlue : NSColor.systemGray).withAlphaComponent(0.20).cgColor
+        updateSurfaceColors()
 
         let label = NSTextField(labelWithString: workspace.label)
         label.font = .systemFont(ofSize: 12, weight: workspace.active ? .semibold : .medium)
@@ -205,6 +204,19 @@ private final class WorkspaceButton: NSButton {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateSurfaceColors()
+    }
+
+    private func updateSurfaceColors() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let ink = NSColor.labelColor
+            layer?.borderColor = (isActive ? activeWorkspaceBorderColor : ink.withAlphaComponent(0.18)).cgColor
+            layer?.backgroundColor = ink.withAlphaComponent(isActive ? 0.13 : 0.05).cgColor
+        }
+    }
 
     func showClickFeedback(startedAt: CFTimeInterval) {
         let duration = 0.40

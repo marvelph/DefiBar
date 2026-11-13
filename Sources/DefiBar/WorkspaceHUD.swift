@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 @MainActor
 final class WorkspaceHUD {
@@ -51,32 +52,21 @@ final class WorkspaceHUD {
         panel.backgroundColor = .clear
         panel.hasShadow = true
 
-        let background = NSVisualEffectView(frame: NSRect(origin: .zero, size: frame.size))
-        background.material = .hudWindow
-        background.blendingMode = .behindWindow
-        background.state = .active
-        let cornerRadius: CGFloat = 18
-        // Mask the behind-window material itself, including the blur at the corners.
-        background.maskImage = NSImage(size: frame.size, flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius).fill()
-            return true
-        }
-        let outline = NSView(frame: background.bounds)
-        outline.wantsLayer = true
-        outline.layer?.cornerRadius = cornerRadius
-        outline.layer?.borderWidth = 1 / screen.backingScaleFactor
-        outline.layer?.borderColor = NSColor.white.withAlphaComponent(0.22).cgColor
-        background.addSubview(outline)
-        background.addSubview(content)
+        let root = NSView(frame: NSRect(origin: .zero, size: frame.size))
+        let background = NSHostingView(rootView: WorkspaceHUDSurface())
+        background.sizingOptions = []
+        background.frame = root.bounds
+        background.autoresizingMask = [.width, .height]
+        root.addSubview(background)
+        root.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalToConstant: min(contentWidth, width - 24)),
-            content.centerXAnchor.constraint(equalTo: background.centerXAnchor),
-            content.centerYAnchor.constraint(equalTo: background.centerYAnchor)
+            content.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            content.centerYAnchor.constraint(equalTo: root.centerYAnchor)
         ])
 
-        panel.contentView = background
+        panel.contentView = root
         self.panel = panel
         panel.orderFrontRegardless()
 
@@ -90,6 +80,34 @@ final class WorkspaceHUD {
             guard !Task.isCancelled else { return }
             panel.orderOut(nil)
             self?.panel = nil
+        }
+    }
+}
+
+private struct WorkspaceHUDSurface: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        // Match the surface used by Defi's recent windows switcher.
+        let color: Color = colorScheme == .dark ? .black : .white
+        let shape = RoundedRectangle(cornerRadius: 20)
+        let surface = Color.clear
+            .background(
+                LinearGradient(
+                    stops: [
+                        .init(color: color.opacity(0.94), location: 0),
+                        .init(color: color.opacity(0.94), location: 0.4),
+                        .init(color: color.opacity(0), location: 1),
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                ),
+                in: shape
+            )
+
+        if #available(macOS 26, *) {
+            surface.glassEffect(.regular, in: shape)
+        } else {
+            surface.background(.regularMaterial, in: shape)
         }
     }
 }

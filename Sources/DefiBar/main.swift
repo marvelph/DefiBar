@@ -26,6 +26,11 @@ struct WorkspaceState: Decodable, Sendable {
         let focusedApplication: String?
         let windowCount: Int
 
+        var symbolImage: NSImage? {
+            guard kind != "trailing", name?.isEmpty == false, let icon else { return nil }
+            return NSImage(systemSymbolName: icon, accessibilityDescription: nil)
+        }
+
         var label: String {
             if kind == "trailing" { return "+" }
             guard let name, !name.isEmpty else { return String(position) }
@@ -161,10 +166,8 @@ private final class WorkspaceButton: NSButton {
         content.alignment = .centerY
         content.spacing = 0
         content.setCustomSpacing(labelSpacing, after: label)
-        let isTrailing = workspace.kind == "trailing"
         var workspaceLabelWidth = ceil(label.intrinsicContentSize.width)
-        if !isTrailing, workspace.name?.isEmpty == false, let symbol = workspace.icon,
-           let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
+        if let image = workspace.symbolImage {
             let view = NSImageView(image: image)
             let spacing: CGFloat = 4
             view.imageScaling = .scaleProportionallyUpOrDown
@@ -239,6 +242,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var refreshPending = false
     private var switching = false
     private var lastClick: (display: Int, position: Int, time: CFTimeInterval)?
+    private let workspaceHUD = WorkspaceHUD()
     private var icons: [String: NSImage] = [:]
     private var message = localized("status.connecting")
 
@@ -287,8 +291,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         revision += 1
-        state = updated
-        render()
+        applyState(updated)
     }
 
     @objc private func applicationTerminated(_ notification: Notification) {
@@ -311,15 +314,16 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if requestedRevision == revision {
                 switch result {
                 case .success(let updated):
-                    state = updated
+                    applyState(updated)
                 case .failure(DefiClient.Failure.cliMissing):
                     state = nil
                     message = localized("status.cliMissing")
+                    render()
                 case .failure:
                     state = nil
                     message = localized("status.connectionFailed")
+                    render()
                 }
-                render()
             }
 
             reading = false
@@ -333,6 +337,23 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var focusedMonitor: WorkspaceState.Monitor? {
         state?.monitors.first { $0.id == state?.focusedMonitorID }
             ?? state?.monitors.first(where: \.focused)
+    }
+
+    private func applyState(_ updated: WorkspaceState) {
+        let previousMonitor = focusedMonitor
+        let previousPosition = previousMonitor?.workspaces.first(where: \.active)?.position
+        state = updated
+        render()
+
+        guard let previousPosition, let monitor = focusedMonitor,
+              let workspace = monitor.workspaces.first(where: \.active),
+              previousMonitor?.id != monitor.id || previousPosition != workspace.position else { return }
+
+        let screen = NSScreen.screens.first {
+            ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == monitor.id
+        } ?? item.button?.window?.screen ?? NSScreen.main
+        guard let screen else { return }
+        workspaceHUD.show(workspace.label, icon: workspace.symbolImage, on: screen)
     }
 
     private var unavailableStatus: String? {

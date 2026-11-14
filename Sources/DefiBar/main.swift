@@ -16,6 +16,15 @@ struct WorkspaceState: Decodable, Sendable {
         let workspaces: [Workspace]
     }
 
+    struct Window: Decodable, Sendable {
+        let id: UInt64
+        let appID: String
+        let column: Int?
+        let row: Int?
+        let floating: Bool
+        let selected: Bool
+    }
+
     struct Workspace: Decodable, Sendable {
         let position: Int
         let name: String?
@@ -25,6 +34,15 @@ struct WorkspaceState: Decodable, Sendable {
         let applications: [String]
         let focusedApplication: String?
         let windowCount: Int
+        let windows: [Window]?
+
+        var tiledColumns: [[Window]] {
+            guard let windows else { return [] }
+            let tiled = Dictionary(grouping: windows.filter { !$0.floating }) { $0.column ?? 0 }
+            return tiled.keys.sorted().map { column in
+                tiled[column, default: []].sorted { ($0.row ?? 0) < ($1.row ?? 0) }
+            }
+        }
 
         var symbolImage: NSImage? {
             guard kind != "trailing", name?.isEmpty == false, let icon else { return nil }
@@ -91,11 +109,39 @@ enum DefiClient {
 }
 
 private let activeWorkspaceBorderColor = NSColor.systemBlue.withAlphaComponent(0.65)
+private var windowGroupMarkerColor: NSColor { NSColor.labelColor.withAlphaComponent(0.35) }
 private let workspaceButtonHeight: CGFloat = 22
+
+private let clickFeedbackDuration = 0.40
+
+private func animateClickFeedback(
+    on layer: CALayer, color: CGColor, background: CGColor, startedAt: CFTimeInterval
+) {
+    guard CACurrentMediaTime() - startedAt < clickFeedbackDuration else { return }
+    let feedback = CAKeyframeAnimation(keyPath: "backgroundColor")
+    feedback.values = [color, color, background]
+    feedback.keyTimes = [0, 0.20, 1]
+    feedback.beginTime = layer.convertTime(startedAt, from: nil)
+    feedback.duration = clickFeedbackDuration
+    layer.add(feedback, forKey: "clickFeedback")
+}
 
 @MainActor
 private final class AppIconSlot: NSView {
     var showsFocus = false
+    var windowID: UInt64?
+
+    func showClickFeedback(startedAt: CFTimeInterval) {
+        wantsLayer = true
+        guard let layer else { return }
+        layer.cornerRadius = 4
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            animateClickFeedback(
+                on: layer, color: activeWorkspaceBorderColor.cgColor,
+                background: NSColor.clear.cgColor, startedAt: startedAt
+            )
+        }
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -119,11 +165,20 @@ private final class WorkspaceButton: NSButton {
     let display: Int
     let position: Int
     let isActive: Bool
+    private var windowSlots: [AppIconSlot] = []
+
+    func windowID(at pointInWindow: NSPoint) -> UInt64? {
+        windowSlots.first { $0.bounds.contains($0.convert(pointInWindow, from: nil)) }?.windowID
+    }
+
+    func showWindowClickFeedback(id: UInt64, startedAt: CFTimeInterval) {
+        windowSlots.first { $0.windowID == id }?.showClickFeedback(startedAt: startedAt)
+    }
 
     init(
         workspace: WorkspaceState.Workspace,
         display: Int,
-        icons: [(bundleID: String, image: NSImage)]
+        icon: (String) -> NSImage
     ) {
         self.display = display
         position = workspace.position
@@ -143,12 +198,13 @@ private final class WorkspaceButton: NSButton {
         let iconSize: CGFloat = 14
         let iconSlotWidth: CGFloat = 18
         let labelSpacing: CGFloat = 2
-        let images = icons.map { icon in
-            let view = NSImageView(image: icon.image)
+        func makeSlot(appID: String, window: WorkspaceState.Window? = nil) -> AppIconSlot {
+            let view = NSImageView(image: icon(appID))
             view.imageScaling = .scaleProportionallyUpOrDown
             view.translatesAutoresizingMaskIntoConstraints = false
             let slot = AppIconSlot(frame: .zero)
-            slot.showsFocus = icon.bundleID == workspace.focusedApplication
+            slot.showsFocus = window?.selected ?? (appID == workspace.focusedApplication)
+            slot.windowID = window?.id
             slot.addSubview(view)
             NSLayoutConstraint.activate([
                 slot.widthAnchor.constraint(equalToConstant: iconSlotWidth),
@@ -158,9 +214,69 @@ private final class WorkspaceButton: NSButton {
                 view.widthAnchor.constraint(equalToConstant: iconSize),
                 view.heightAnchor.constraint(equalToConstant: iconSize)
             ])
+            if let window {
+                let appName = NSRunningApplication.runningApplications(withBundleIdentifier: appID).first?.localizedName
+                    ?? appID
+                slot.toolTip = "\(appName) · #\(window.id)"
+                windowSlots.append(slot)
+            }
             return slot
         }
-        let content = NSStackView(views: [label] + images)
+
+        var iconViews: [NSView] = []
+        var iconWidth: CGFloat = 0
+        func appendSlot(_ slot: AppIconSlot) {
+            iconViews.append(slot)
+            iconWidth += iconSlotWidth
+        }
+
+        func appendWindowGroupMarker(_ text: String) {
+            let bracket = NSTextField(labelWithString: text)
+            bracket.font = .systemFont(ofSize: 13, weight: .medium)
+            bracket.textColor = windowGroupMarkerColor
+            bracket.alignment = .center
+            bracket.setAccessibilityElement(false)
+            let width = ceil(bracket.intrinsicContentSize.width)
+            let marker = NSView()
+            marker.addSubview(bracket)
+            bracket.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                marker.widthAnchor.constraint(equalToConstant: width),
+                marker.heightAnchor.constraint(equalToConstant: workspaceButtonHeight),
+                bracket.leadingAnchor.constraint(equalTo: marker.leadingAnchor),
+                bracket.trailingAnchor.constraint(equalTo: marker.trailingAnchor),
+                bracket.centerYAnchor.constraint(equalTo: marker.centerYAnchor, constant: -1)
+            ])
+            iconViews.append(marker)
+            iconWidth += width
+        }
+
+        if workspace.active {
+            if let windows = workspace.windows {
+                for column in workspace.tiledColumns {
+                    let stacked = column.count > 1
+                    if stacked { appendWindowGroupMarker("(") }
+                    for window in column {
+                        appendSlot(makeSlot(appID: window.appID, window: window))
+                    }
+                    if stacked { appendWindowGroupMarker(")") }
+                }
+                let floating = windows.filter(\.floating)
+                if !floating.isEmpty, !iconViews.isEmpty {
+                    appendWindowGroupMarker("|")
+                }
+                for window in floating {
+                    appendSlot(makeSlot(appID: window.appID, window: window))
+                }
+            } else {
+                var seen = Set<String>()
+                for appID in workspace.applications where seen.insert(appID).inserted {
+                    appendSlot(makeSlot(appID: appID))
+                }
+            }
+        }
+
+        let content = NSStackView(views: [label] + iconViews)
         content.orientation = .horizontal
         content.alignment = .centerY
         content.spacing = 0
@@ -181,9 +297,8 @@ private final class WorkspaceButton: NSButton {
         }
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)
-        let iconWidth = icons.isEmpty ? 0 : labelSpacing + CGFloat(icons.count) * iconSlotWidth
         // Keep the frame tied to its contents when the status bar lays out the row again.
-        let buttonWidth = workspaceLabelWidth + iconWidth + 2 * horizontalInset
+        let buttonWidth = workspaceLabelWidth + iconWidth + (iconViews.isEmpty ? 0 : labelSpacing) + 2 * horizontalInset
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: horizontalInset),
             content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -horizontalInset),
@@ -195,7 +310,7 @@ private final class WorkspaceButton: NSButton {
         let windowCount = String.localizedStringWithFormat(localized("workspace.windowCount"), workspace.windowCount)
         toolTip = "\(workspace.label) · \(windowCount)"
         setAccessibilityLabel(workspace.label)
-        if let bundleID = workspace.focusedApplication, icons.contains(where: { $0.bundleID == bundleID }) {
+        if let bundleID = workspace.focusedApplication, workspace.active, !iconViews.isEmpty {
             let name = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName
                 ?? bundleID
             setAccessibilityValue(String(format: localized("workspace.selectedApp"), name))
@@ -219,16 +334,9 @@ private final class WorkspaceButton: NSButton {
     }
 
     func showClickFeedback(startedAt: CFTimeInterval) {
-        let duration = 0.40
-        guard CACurrentMediaTime() - startedAt < duration,
-              let layer, let borderColor = layer.borderColor,
+        guard let layer, let borderColor = layer.borderColor,
               let backgroundColor = layer.backgroundColor else { return }
-        let feedback = CAKeyframeAnimation(keyPath: "backgroundColor")
-        feedback.values = [borderColor, borderColor, backgroundColor]
-        feedback.keyTimes = [0, 0.20, 1]
-        feedback.beginTime = layer.convertTime(startedAt, from: nil)
-        feedback.duration = duration
-        layer.add(feedback, forKey: "clickFeedback")
+        animateClickFeedback(on: layer, color: borderColor, background: backgroundColor, startedAt: startedAt)
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -256,6 +364,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var refreshPending = false
     private var switching = false
     private var lastClick: (display: Int, position: Int, time: CFTimeInterval)?
+    private var lastWindowClick: (id: UInt64, time: CFTimeInterval)?
     private let workspaceHUD = WorkspaceHUD()
     private var icons: [String: NSImage] = [:]
     private var message = localized("status.connecting")
@@ -401,16 +510,15 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusButton.setAccessibilityLabel("DefiBar")
         guard let monitor = focusedMonitor else { return }
         for workspace in monitor.workspaces.sorted(by: { $0.position < $1.position }) {
-            var seen = Set<String>()
-            let appIcons: [(bundleID: String, image: NSImage)] = workspace.active
-                ? workspace.applications.filter { seen.insert($0).inserted }.map { ($0, icon(for: $0)) }
-                : []
             let button = WorkspaceButton(
-                workspace: workspace, display: monitor.display, icons: appIcons
+                workspace: workspace, display: monitor.display, icon: icon(for:)
             )
             button.target = self
             button.action = #selector(switchWorkspace(_:))
             row.addArrangedSubview(button)
+            if let lastWindowClick, CACurrentMediaTime() - lastWindowClick.time < clickFeedbackDuration {
+                button.showWindowClickFeedback(id: lastWindowClick.id, startedAt: lastWindowClick.time)
+            }
             if let lastClick, lastClick.display == monitor.display, lastClick.position == workspace.position {
                 button.showClickFeedback(startedAt: lastClick.time)
             }
@@ -444,7 +552,15 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             view.bounds.contains(view.convert(pointInWindow, from: nil))
         }
         if let workspace = clicked as? WorkspaceButton {
-            switchWorkspace(workspace)
+            if let id = workspace.windowID(at: pointInWindow) {
+                guard !switching else { return }
+                let time = CACurrentMediaTime()
+                lastWindowClick = (id, time)
+                workspace.showWindowClickFeedback(id: id, startedAt: time)
+                switchFocus(arguments: ["focus-window-id", String(id)])
+            } else {
+                switchWorkspace(workspace)
+            }
         }
     }
 
@@ -452,16 +568,20 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let time = CACurrentMediaTime()
         lastClick = (sender.display, sender.position, time)
         sender.showClickFeedback(startedAt: time)
-        guard !sender.isActive, !switching else { return }
+        guard !sender.isActive else { return }
+        switchFocus(arguments: ["--monitor", String(sender.display), "focus-workspace-position", String(sender.position)])
+    }
+
+    private func switchFocus(arguments: [String]) {
+        guard !switching else { return }
         switching = true
-        let arguments = ["--monitor", String(sender.display), "focus-workspace-position", String(sender.position)]
         Task {
             let result = await Task.detached(priority: .userInitiated) {
                 Result { try DefiClient.run(arguments) }
             }.value
             switching = false
             if case .failure(let error) = result {
-                NSLog("DefiBar: workspace switch failed: %@", String(describing: error))
+                NSLog("DefiBar: focus switch failed: %@", String(describing: error))
                 NSSound.beep()
             }
             refresh()

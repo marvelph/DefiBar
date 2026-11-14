@@ -27,12 +27,10 @@ private final class AppIconSlot: NSView {
     private var hoverArea: NSTrackingArea?
     private var titleRequest: Task<Void, Never>?
     private var appName: String?
-    private var fallbackTitle: String?
 
-    func configureTooltip(appName: String, title: String?) {
+    func configureTooltip(appName: String) {
         self.appName = appName
-        fallbackTitle = title
-        updateTooltip(title: title)
+        updateTooltip(title: nil)
     }
 
     override func updateTrackingAreas() {
@@ -55,14 +53,14 @@ private final class AppIconSlot: NSView {
                 try? DefiClient.windowTitle(for: windowID)
             }.value
             guard !Task.isCancelled, let self, self.window != nil else { return }
-            updateTooltip(title: title ?? fallbackTitle)
+            updateTooltip(title: title)
         }
     }
 
     override func mouseExited(with event: NSEvent) {
         titleRequest?.cancel()
         titleRequest = nil
-        updateTooltip(title: fallbackTitle)
+        updateTooltip(title: nil)
     }
 
     private func updateTooltip(title: String?) {
@@ -207,10 +205,10 @@ final class WorkspaceButton: NSButton {
                 view.widthAnchor.constraint(equalToConstant: iconSize),
                 view.heightAnchor.constraint(equalToConstant: iconSize)
             ])
-            if let window {
+            if window != nil {
                 let appName = NSRunningApplication.runningApplications(withBundleIdentifier: appID).first?.localizedName
                     ?? appID
-                slot.configureTooltip(appName: appName, title: window.title)
+                slot.configureTooltip(appName: appName)
                 windowSlots.append(slot)
             }
             return slot
@@ -244,7 +242,7 @@ final class WorkspaceButton: NSButton {
             iconWidth += width
         }
 
-        if showsWindowDetails, let windows = workspace.windows {
+        if showsWindowDetails {
             for column in workspace.tiledColumns {
                 let stacked = column.count > 1
                 if stacked { appendWindowGroupMarker("(") }
@@ -253,7 +251,7 @@ final class WorkspaceButton: NSButton {
                 }
                 if stacked { appendWindowGroupMarker(")") }
             }
-            let floating = windows.filter(\.floating)
+            let floating = workspace.windows.filter(\.floating)
             if !floating.isEmpty, !iconViews.isEmpty {
                 appendWindowGroupMarker("|")
             }

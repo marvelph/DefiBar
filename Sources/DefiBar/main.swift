@@ -20,7 +20,6 @@ struct WorkspaceState: Decodable, Sendable {
     struct Window: Decodable, Sendable {
         let id: UInt64
         let appID: String
-        let title: String?
         let column: Int?
         let row: Int?
         let floating: Bool
@@ -36,10 +35,9 @@ struct WorkspaceState: Decodable, Sendable {
         let applications: [String]
         let focusedApplication: String?
         let windowCount: Int
-        let windows: [Window]?
+        let windows: [Window]
 
         var tiledColumns: [[Window]] {
-            guard let windows else { return [] }
             let tiled = Dictionary(grouping: windows.filter { !$0.floating }) { $0.column ?? 0 }
             return tiled.keys.sorted().map { column in
                 tiled[column, default: []].sorted { ($0.row ?? 0) < ($1.row ?? 0) }

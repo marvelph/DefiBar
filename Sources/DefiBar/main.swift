@@ -376,7 +376,40 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastWindowClick: (id: UInt64, time: CFTimeInterval)?
     private let workspaceHUD = WorkspaceHUD()
     private var icons: [String: NSImage] = [:]
-    private var message = localized("status.connecting")
+    private var connectionStatusKey = "status.connecting"
+
+    private lazy var connectingIcon = makeConnectionIcon(showsWarning: false)
+    private lazy var warningIcon = makeConnectionIcon(showsWarning: true)
+
+    private func makeConnectionIcon(showsWarning: Bool) -> NSImage {
+        let image = NSImage(size: NSSize(width: 20, height: 16), flipped: false) { _ in
+            NSColor.black.setFill()
+            NSColor.black.setStroke()
+            let outline = NSBezierPath(
+                roundedRect: NSRect(x: 0.75, y: 3.75, width: 18.5, height: 8.5),
+                xRadius: 3, yRadius: 3
+            )
+            outline.lineWidth = 1.5
+            outline.stroke()
+            for x in [3.0, 7.5, 13.0] {
+                NSBezierPath(
+                    roundedRect: NSRect(x: x, y: 6, width: x == 7.5 ? 5 : 4, height: 4),
+                    xRadius: 1, yRadius: 1
+                ).fill()
+            }
+            if showsWarning {
+                NSGraphicsContext.current?.compositingOperation = .clear
+                NSBezierPath(ovalIn: NSRect(x: 12, y: 0, width: 8, height: 8)).fill()
+                NSGraphicsContext.current?.compositingOperation = .sourceOver
+                NSBezierPath(roundedRect: NSRect(x: 15.5, y: 3.5, width: 1.5, height: 4),
+                             xRadius: 0.75, yRadius: 0.75).fill()
+                NSBezierPath(ovalIn: NSRect(x: 15.5, y: 1, width: 1.5, height: 1.5)).fill()
+            }
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard let button = item.button else { return }
@@ -449,11 +482,11 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     applyState(updated)
                 case .failure(DefiClient.Failure.cliMissing):
                     state = nil
-                    message = localized("status.cliMissing")
+                    connectionStatusKey = "status.cliMissing"
                     render()
                 case .failure:
                     state = nil
-                    message = localized("status.connectionFailed")
+                    connectionStatusKey = "status.connectionFailed"
                     render()
                 }
             }
@@ -489,7 +522,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private var unavailableStatus: String? {
-        guard state != nil else { return message }
+        guard state != nil else { return localized(connectionStatusKey) }
         guard focusedMonitor?.workspaces.isEmpty == false else { return localized("status.noWorkspaces") }
         return nil
     }
@@ -504,13 +537,12 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let status = unavailableStatus
         statusButton.toolTip = status
         if let status {
-            let image = NSImage(systemSymbolName: "square.grid.2x2", accessibilityDescription: "DefiBar")
-            image?.isTemplate = true
-            statusButton.image = image
-            statusButton.imagePosition = image == nil ? .noImage : .imageOnly
-            statusButton.title = image == nil ? "DefiBar" : ""
+            statusButton.image = state == nil && connectionStatusKey == "status.connecting"
+                ? connectingIcon : warningIcon
+            statusButton.imagePosition = .imageOnly
+            statusButton.title = ""
             statusButton.setAccessibilityLabel("DefiBar · \(status)")
-            item.length = image == nil ? NSStatusItem.variableLength : NSStatusItem.squareLength
+            item.length = NSStatusItem.squareLength
             return
         }
 
@@ -647,13 +679,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let about = menu.addItem(withTitle: localized("menu.about"), action: #selector(showAboutPanel), keyEquivalent: "")
         about.target = self
         menu.addItem(.separator())
-        let mode = menu.addItem(
-            withTitle: localized("menu.showWindowArrangement"),
-            action: #selector(toggleWindowDetails),
-            keyEquivalent: ""
-        )
-        mode.target = self
-        mode.state = showsWindowDetails ? .on : .off
         let login = menu.addItem(
             withTitle: localized("menu.launchAtLogin"),
             action: #selector(toggleLaunchAtLogin),
@@ -665,6 +690,13 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .requiresApproval: login.state = .mixed
         default: login.state = .off
         }
+        let mode = menu.addItem(
+            withTitle: localized("menu.showWindowArrangement"),
+            action: #selector(toggleWindowDetails),
+            keyEquivalent: ""
+        )
+        mode.target = self
+        mode.state = showsWindowDetails ? .on : .off
         menu.addItem(.separator())
         if let status = unavailableStatus {
             let statusItem = menu.addItem(withTitle: status, action: nil, keyEquivalent: "")

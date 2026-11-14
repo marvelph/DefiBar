@@ -1,18 +1,23 @@
+<img src="docs/defibar-icon.png" alt="DefiBar app icon" width="64" height="64">
+
 # DefiBar
 
 **English** · [日本語](README.ja.md)
 
 DefiBar displays [Defi](https://github.com/qeude/Defi) workspaces in a single row in the macOS menu bar. It shows workspaces for the display that Defi reports as focused. Named workspaces show their names, and unnamed workspaces show their numbers.
 
-![DefiBar in the macOS menu bar, with the dev workspace active and its app icons visible](docs/defibar-screenshot.png)
+![DefiBar in the macOS menu bar with Show Window Arrangement enabled](docs/defibar-screenshot.png)
 
 - Click a workspace button to switch to that workspace on the display.
-- The active workspace has a distinct background color and shows one icon per app in that workspace to the right of its label.
-- Right-click the DefiBar area to open Defi settings or quit DefiBar. If workspaces are unavailable, DefiBar shows a grid icon. The first item in the right-click menu shows the current status.
+- By default, the active workspace shows one icon per app. Clicking an app icon is the same as clicking its workspace button.
+- Right-click the DefiBar area and choose **Show Window Arrangement** to show one icon per window in the active workspace. Click an icon to focus its window. Parentheses group windows stacked in the same column, and floating windows appear after a `|` separator. The mark below an icon shows the selected window. Hover over an icon to see its app name and window title, when available.
+- The right-click menu also lets you enable **Launch at Login**, check the version under **About DefiBar**, open Defi settings, or quit DefiBar. When workspaces are unavailable, the DefiBar icon appears in the menu bar. Hover over it or open the right-click menu to check the current status.
 
 ## Build and run
 
 You need macOS 15.4 or later, Swift 5.9 or later, and Defi 0.9 or later. Run the following from the project directory. You can start Defi and DefiBar in either order.
+
+Window arrangement requires a Defi build that provides per-window workspace data. DefiBar uses the default app summary when that data is missing. If window titles are unavailable, tooltips show the app name alone.
 
 ```sh
 ./build-app.sh

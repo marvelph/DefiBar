@@ -24,6 +24,53 @@ private func animateClickFeedback(
 private final class AppIconSlot: NSView {
     var showsFocus = false
     var windowID: UInt64?
+    private var hoverArea: NSTrackingArea?
+    private var titleRequest: Task<Void, Never>?
+    private var appName: String?
+    private var fallbackTitle: String?
+
+    func configureTooltip(appName: String, title: String?) {
+        self.appName = appName
+        fallbackTitle = title
+        updateTooltip(title: title)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        guard windowID != nil else { return }
+        let area = NSTrackingArea(
+            rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self, userInfo: nil
+        )
+        addTrackingArea(area)
+        hoverArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        guard let windowID else { return }
+        titleRequest?.cancel()
+        titleRequest = Task { [weak self] in
+            let title = await Task.detached(priority: .utility) {
+                try? DefiClient.windowTitle(for: windowID)
+            }.value
+            guard !Task.isCancelled, let self, self.window != nil else { return }
+            updateTooltip(title: title ?? fallbackTitle)
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        titleRequest?.cancel()
+        titleRequest = nil
+        updateTooltip(title: fallbackTitle)
+    }
+
+    private func updateTooltip(title: String?) {
+        guard let appName else { return }
+        let title = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let text = title.isEmpty ? appName : "\(appName) · \(title)"
+        if toolTip != text { toolTip = text }
+    }
 
     func showClickFeedback(startedAt: CFTimeInterval) {
         wantsLayer = true
@@ -163,11 +210,7 @@ final class WorkspaceButton: NSButton {
             if let window {
                 let appName = NSRunningApplication.runningApplications(withBundleIdentifier: appID).first?.localizedName
                     ?? appID
-                if let title = window.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
-                    slot.toolTip = "\(appName) · \(title)"
-                } else {
-                    slot.toolTip = appName
-                }
+                slot.configureTooltip(appName: appName, title: window.title)
                 windowSlots.append(slot)
             }
             return slot

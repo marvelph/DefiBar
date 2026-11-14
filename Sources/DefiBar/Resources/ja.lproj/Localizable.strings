@@ -8,3 +8,6 @@
 "status.noWorkspaces" = "ワークスペースがありません";
 "menu.settings" = "Defi の設定…";
 "menu.quit" = "DefiBar を終了";
+"menu.showWindowArrangement" = "ウインドウの並びを表示";
+"menu.launchAtLogin" = "ログイン時に起動";
+"menu.about" = "DefiBarについて";

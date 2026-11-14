@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import UniformTypeIdentifiers
 
 private func localized(_ key: String) -> String {
@@ -179,6 +180,7 @@ private final class WorkspaceButton: NSButton {
     init(
         workspace: WorkspaceState.Workspace,
         display: Int,
+        showsWindowDetails: Bool,
         icon: (String) -> NSImage
     ) {
         self.display = display
@@ -257,7 +259,7 @@ private final class WorkspaceButton: NSButton {
         }
 
         if workspace.active {
-            if let windows = workspace.windows {
+            if showsWindowDetails, let windows = workspace.windows {
                 for column in workspace.tiledColumns {
                     let stacked = column.count > 1
                     if stacked { appendWindowGroupMarker("(") }
@@ -359,6 +361,8 @@ private final class StatusRow: NSStackView {
 
 @MainActor
 final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private static let showsWindowDetailsKey = "showsWindowDetails"
+    private var showsWindowDetails = UserDefaults.standard.bool(forKey: showsWindowDetailsKey)
     // The bundle identifier and notification prefix differ across Defi versions.
     private static let defiIdentifiers = ["com.qeude.defi", "com.quentin.defi"]
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -516,7 +520,8 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let monitor = focusedMonitor else { return }
         for workspace in monitor.workspaces.sorted(by: { $0.position < $1.position }) {
             let button = WorkspaceButton(
-                workspace: workspace, display: monitor.display, icon: icon(for:)
+                workspace: workspace, display: monitor.display,
+                showsWindowDetails: showsWindowDetails, icon: icon(for:)
             )
             button.target = self
             button.action = #selector(switchWorkspace(_:))
@@ -604,10 +609,63 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc private func toggleWindowDetails() {
+        showsWindowDetails.toggle()
+        UserDefaults.standard.set(showsWindowDetails, forKey: Self.showsWindowDetailsKey)
+        render()
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        let service = SMAppService.mainApp
+        do {
+            switch service.status {
+            case .enabled:
+                try service.unregister()
+            case .requiresApproval:
+                SMAppService.openSystemSettingsLoginItems()
+            default:
+                try service.register()
+                if service.status == .requiresApproval {
+                    SMAppService.openSystemSettingsLoginItems()
+                }
+            }
+        } catch {
+            NSLog("DefiBar: could not change launch at login: %@", String(describing: error))
+            NSSound.beep()
+        }
+    }
+
+    @objc private func showAboutPanel() {
+        NSApp.activate()
+        NSApp.orderFrontStandardAboutPanel(nil)
+    }
+
     private func showMenu() {
         guard item.menu == nil, let button = item.button else { return }
         let menu = NSMenu()
         menu.delegate = self
+        let about = menu.addItem(withTitle: localized("menu.about"), action: #selector(showAboutPanel), keyEquivalent: "")
+        about.target = self
+        menu.addItem(.separator())
+        let mode = menu.addItem(
+            withTitle: localized("menu.showWindowArrangement"),
+            action: #selector(toggleWindowDetails),
+            keyEquivalent: ""
+        )
+        mode.target = self
+        mode.state = showsWindowDetails ? .on : .off
+        let login = menu.addItem(
+            withTitle: localized("menu.launchAtLogin"),
+            action: #selector(toggleLaunchAtLogin),
+            keyEquivalent: ""
+        )
+        login.target = self
+        switch SMAppService.mainApp.status {
+        case .enabled: login.state = .on
+        case .requiresApproval: login.state = .mixed
+        default: login.state = .off
+        }
+        menu.addItem(.separator())
         if let status = unavailableStatus {
             let statusItem = menu.addItem(withTitle: status, action: nil, keyEquivalent: "")
             statusItem.isEnabled = false

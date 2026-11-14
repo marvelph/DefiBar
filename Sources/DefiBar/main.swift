@@ -75,6 +75,21 @@ enum DefiClient {
         try JSONDecoder().decode(WorkspaceState.self, from: data)
     }
 
+    static func windowTitle(for id: UInt64) throws -> String? {
+        struct WindowList: Decodable {
+            struct Window: Decodable {
+                let id: UInt64
+                let title: String?
+            }
+
+            let windows: [Window]
+        }
+
+        let data = try run(["list-windows", "--json"])
+        let list = try JSONDecoder().decode(WindowList.self, from: data)
+        return list.windows.first { $0.id == id }?.title
+    }
+
     static func run(_ arguments: [String]) throws -> Data {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let environment = ProcessInfo.processInfo.environment

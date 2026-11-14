@@ -17,9 +17,7 @@ DefiBar displays [Defi](https://github.com/qeude/Defi) workspaces in a single ro
 
 ## Build and run
 
-You need macOS 15.4 or later, Swift 5.9 or later, and Defi 0.9 or later. Run the following from the project directory. You can start Defi and DefiBar in either order.
-
-Window arrangement requires a Defi build that provides per-window workspace data. DefiBar uses the default app summary when that data is missing. If window titles are unavailable, tooltips show the app name alone.
+You need macOS 15.4 or later, Swift 5.9 or later, and a Defi build that includes [workspace window layout support](https://github.com/qeude/Defi/pull/282). Run the following from the project directory. You can start Defi and DefiBar in either order.
 
 ```sh
 ./build-app.sh

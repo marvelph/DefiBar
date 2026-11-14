@@ -1,8 +1,10 @@
-<img src="docs/defibar-icon.png" alt="DefiBar app icon" width="64" height="64">
+<p align="center">
+  <img src="docs/defibar-icon.png" alt="DefiBar app icon" width="64" height="64">
+</p>
 
-# DefiBar
+<h1 align="center">DefiBar</h1>
 
-**English** · [日本語](README.ja.md)
+<p align="center"><strong>English</strong> · <a href="README.ja.md">日本語</a></p>
 
 DefiBar displays [Defi](https://github.com/qeude/Defi) workspaces in a single row in the macOS menu bar. It shows workspaces for the display that Defi reports as focused. Named workspaces show their names, and unnamed workspaces show their numbers.
 

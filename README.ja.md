@@ -1,8 +1,10 @@
-<img src="docs/defibar-icon.png" alt="DefiBarのアプリアイコン" width="64" height="64">
+<p align="center">
+  <img src="docs/defibar-icon.png" alt="DefiBarのアプリアイコン" width="64" height="64">
+</p>
 
-# DefiBar
+<h1 align="center">DefiBar</h1>
 
-[English](README.md) · **日本語**
+<p align="center"><a href="README.md">English</a> · <strong>日本語</strong></p>
 
 [Defi](https://github.com/qeude/Defi) のワークスペースを macOS のメニューバーに横一列で表示します。表示対象は Defi がフォーカス中と報告するディスプレイです。名前のあるワークスペースには名前を、名前のないワークスペースには番号を表示します。
 

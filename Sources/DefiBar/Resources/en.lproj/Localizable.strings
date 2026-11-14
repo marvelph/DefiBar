@@ -8,3 +8,6 @@
 "status.noWorkspaces" = "No workspaces available";
 "menu.settings" = "Defi Settings…";
 "menu.quit" = "Quit DefiBar";
+"menu.showWindowArrangement" = "Show Window Arrangement";
+"menu.launchAtLogin" = "Launch at Login";
+"menu.about" = "About DefiBar";

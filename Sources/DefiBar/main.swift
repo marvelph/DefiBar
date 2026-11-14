@@ -19,6 +19,7 @@ struct WorkspaceState: Decodable, Sendable {
     struct Window: Decodable, Sendable {
         let id: UInt64
         let appID: String
+        let title: String?
         let column: Int?
         let row: Int?
         let floating: Bool
@@ -217,7 +218,11 @@ private final class WorkspaceButton: NSButton {
             if let window {
                 let appName = NSRunningApplication.runningApplications(withBundleIdentifier: appID).first?.localizedName
                     ?? appID
-                slot.toolTip = "\(appName) · #\(window.id)"
+                if let title = window.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+                    slot.toolTip = "\(appName) · \(title)"
+                } else {
+                    slot.toolTip = appName
+                }
                 windowSlots.append(slot)
             }
             return slot

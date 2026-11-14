@@ -584,7 +584,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 NSLog("DefiBar: focus switch failed: %@", String(describing: error))
                 NSSound.beep()
             }
-            refresh()
         }
     }
 

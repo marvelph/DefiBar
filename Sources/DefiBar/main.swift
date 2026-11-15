@@ -52,6 +52,7 @@ struct WorkspaceState: Decodable, Sendable {
 
         var label: String {
             if kind == "trailing" { return "+" }
+            if kind == "ordinary" { return "#\(position)" }
             guard let name, !name.isEmpty else { return String(position) }
             return name
         }

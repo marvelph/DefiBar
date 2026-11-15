@@ -1,7 +1,6 @@
 import AppKit
 
 private let activeWorkspaceBorderColor = NSColor.systemBlue.withAlphaComponent(0.65)
-private var windowGroupMarkerColor: NSColor { NSColor.labelColor.withAlphaComponent(0.35) }
 private let workspaceButtonHeight: CGFloat = 22
 private let iconSize: CGFloat = 14
 private let iconSlotWidth: CGFloat = 18
@@ -134,18 +133,35 @@ final class WorkspaceButton: NSButton {
 
         let label = NSTextField(labelWithString: workspace.label)
         label.font = .systemFont(ofSize: 12, weight: workspace.active ? .semibold : .medium)
+        let labelView: NSView
+        let labelWidth: CGFloat
+        let labelSymbolConfiguration = NSImage.SymbolConfiguration(
+            pointSize: 12, weight: workspace.active ? .semibold : .medium
+        )
+        if workspace.kind == "trailing",
+           let image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
+            .withSymbolConfiguration(labelSymbolConfiguration) {
+            let view = NSImageView(image: image)
+            view.contentTintColor = .labelColor
+            labelWidth = ceil(image.size.width)
+            view.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
+            labelView = view
+        } else {
+            labelView = label
+            labelWidth = ceil(label.intrinsicContentSize.width)
+        }
         let horizontalInset: CGFloat = 6
         let labelSpacing: CGFloat = 2
         let (iconViews, iconWidth) = makeIconViews(
             for: workspace, showsWindowDetails: showsWindowDetails, icon: icon
         )
 
-        let content = NSStackView(views: [label] + iconViews)
+        let content = NSStackView(views: [labelView] + iconViews)
         content.orientation = .horizontal
         content.alignment = .centerY
         content.spacing = 0
-        content.setCustomSpacing(labelSpacing, after: label)
-        var workspaceLabelWidth = ceil(label.intrinsicContentSize.width)
+        content.setCustomSpacing(labelSpacing, after: labelView)
+        var workspaceLabelWidth = labelWidth
         if let image = workspace.symbolImage {
             let view = NSImageView(image: image)
             let spacing: CGFloat = 4
@@ -221,10 +237,13 @@ final class WorkspaceButton: NSButton {
             iconWidth += iconSlotWidth
         }
 
+        let markerPointSize: CGFloat = 12
+        let markerOpacity: CGFloat = 0.65
+
         func appendWindowGroupMarker(_ text: String) {
             let label = NSTextField(labelWithString: text)
-            label.font = .systemFont(ofSize: 13, weight: .medium)
-            label.textColor = windowGroupMarkerColor
+            label.font = .systemFont(ofSize: markerPointSize, weight: .medium)
+            label.alphaValue = markerOpacity
             label.alignment = .center
             label.setAccessibilityElement(false)
             let width = ceil(label.intrinsicContentSize.width)
@@ -236,24 +255,46 @@ final class WorkspaceButton: NSButton {
                 marker.heightAnchor.constraint(equalToConstant: workspaceButtonHeight),
                 label.leadingAnchor.constraint(equalTo: marker.leadingAnchor),
                 label.trailingAnchor.constraint(equalTo: marker.trailingAnchor),
-                label.centerYAnchor.constraint(equalTo: marker.centerYAnchor, constant: -1)
+                label.centerYAnchor.constraint(equalTo: marker.centerYAnchor)
             ])
             iconViews.append(marker)
             iconWidth += width
         }
 
+        func appendWindowGroupSymbol(_ name: String, fallback: String) {
+            let configuration = NSImage.SymbolConfiguration(pointSize: markerPointSize, weight: .medium)
+            guard let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+                .withSymbolConfiguration(configuration) else {
+                appendWindowGroupMarker(fallback)
+                return
+            }
+            let view = NSImageView(image: image)
+            view.contentTintColor = .labelColor
+            view.alphaValue = markerOpacity
+            view.setAccessibilityElement(false)
+            let width = ceil(image.size.width)
+            view.widthAnchor.constraint(equalToConstant: width).isActive = true
+            iconViews.append(view)
+            iconWidth += width
+        }
+
         if showsWindowDetails {
+            var markedFullscreen = false
             for column in workspace.tiledColumns {
+                if !markedFullscreen, column.first?.nativeFullscreen == true {
+                    appendWindowGroupSymbol("arrow.up.left.and.arrow.down.right", fallback: "⤢")
+                    markedFullscreen = true
+                }
                 let stacked = column.count > 1
-                if stacked { appendWindowGroupMarker("(") }
+                if stacked { appendWindowGroupMarker("[") }
                 for window in column {
                     appendSlot(makeSlot(appID: window.appID, window: window))
                 }
-                if stacked { appendWindowGroupMarker(")") }
+                if stacked { appendWindowGroupMarker("]") }
             }
             let floating = workspace.windows.filter(\.floating)
-            if !floating.isEmpty, !iconViews.isEmpty {
-                appendWindowGroupMarker("|")
+            if !floating.isEmpty {
+                appendWindowGroupSymbol("macwindow.on.rectangle", fallback: "❐")
             }
             for window in floating {
                 appendSlot(makeSlot(appID: window.appID, window: window))

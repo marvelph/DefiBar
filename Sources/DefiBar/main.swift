@@ -24,6 +24,7 @@ struct WorkspaceState: Decodable, Sendable {
         let row: Int?
         let floating: Bool
         let selected: Bool
+        let nativeFullscreen: Bool?
     }
 
     struct Workspace: Decodable, Sendable {

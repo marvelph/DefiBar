@@ -288,7 +288,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == monitor.id
         } ?? item.button?.window?.screen ?? NSScreen.main
         guard let screen else { return }
-        workspaceHUD.show(workspace.label, icon: workspace.symbolImage, on: screen)
+        workspaceHUD.show(workspace, appIcon: icon(for:), on: screen)
     }
 
     private var unavailableStatus: String? {

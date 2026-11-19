@@ -44,7 +44,7 @@ final class WorkspaceHUD {
         content.alignment = .centerX
         content.spacing = 8
 
-        let iconSlotWidth: CGFloat = 36
+        let iconSlotWidth: CGFloat = 72
         let iconSpacing: CGFloat = 6
         let iconsPerRow = max(1, Int((maximumWidth - 48 + iconSpacing) / (iconSlotWidth + iconSpacing)))
         for start in stride(from: 0, to: workspace.applications.count, by: iconsPerRow) {

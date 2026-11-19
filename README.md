@@ -24,6 +24,8 @@ You need macOS 15.4 or later, Swift 5.9 or later, and Defi 0.11.0 or later. Run 
 open .build/DefiBar.app
 ```
 
+The `DefiBar.app` built by `build-app.sh` is not notarized by Apple. If you download the built app onto another Mac, macOS may block it from opening the first time. See [Apple’s guide to safely opening apps on your Mac](https://support.apple.com/en-us/102445).
+
 DefiBar looks for the CLI in `~/Applications/Defi.app`, `/Applications/Defi.app`, and then on its runtime `PATH`. To use a CLI in another location, quit DefiBar and relaunch it with the absolute path to the CLI.
 
 ```sh

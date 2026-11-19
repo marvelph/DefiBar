@@ -24,6 +24,8 @@ macOS 15.4 以降、Swift 5.9 以降、および Defi 0.11.0 以降が必要で�
 open .build/DefiBar.app
 ```
 
+`build-app.sh` で生成した `DefiBar.app` は Apple の公証を受けていません。生成したアプリを別の Mac にダウンロードして開くと、macOS が初回起動をブロックする場合があります。[Apple サポート「Macでアプリを安全に開く」](https://support.apple.com/ja-jp/102445)を参照してください。
+
 DefiBar は `~/Applications/Defi.app`、`/Applications/Defi.app`、実行時の `PATH` の順に CLI を探します。別の場所にある CLI を指定する場合は、アプリを終了してから絶対パスを使って起動できます。
 
 ```sh

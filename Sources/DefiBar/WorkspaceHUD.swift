@@ -44,20 +44,20 @@ final class WorkspaceHUD {
         content.alignment = .centerX
         content.spacing = 8
 
-        let iconSize: CGFloat = 32
+        let iconSlotWidth: CGFloat = 36
         let iconSpacing: CGFloat = 6
-        let iconsPerRow = max(1, Int((maximumWidth - 48 + iconSpacing) / (iconSize + iconSpacing)))
+        let iconsPerRow = max(1, Int((maximumWidth - 48 + iconSpacing) / (iconSlotWidth + iconSpacing)))
         for start in stride(from: 0, to: workspace.applications.count, by: iconsPerRow) {
             let end = min(start + iconsPerRow, workspace.applications.count)
             let icons = workspace.applications[start..<end].map { appID in
-                makeAppIcon(appIcon(appID), size: iconSize, selected: appID == workspace.focusedApplication)
+                makeAppIcon(appIcon(appID), slotWidth: iconSlotWidth, selected: appID == workspace.focusedApplication)
             }
             let row = NSStackView(views: icons)
             row.orientation = .horizontal
             row.alignment = .centerY
             row.spacing = iconSpacing
             content.addArrangedSubview(row)
-            let rowWidth = CGFloat(icons.count) * iconSize + CGFloat(icons.count - 1) * iconSpacing
+            let rowWidth = CGFloat(icons.count) * iconSlotWidth + CGFloat(icons.count - 1) * iconSpacing
             row.widthAnchor.constraint(equalToConstant: rowWidth).isActive = true
         }
 
@@ -109,7 +109,7 @@ final class WorkspaceHUD {
         }
     }
 
-    private func makeAppIcon(_ image: NSImage, size: CGFloat, selected: Bool) -> NSView {
+    private func makeAppIcon(_ image: NSImage, slotWidth: CGFloat, selected: Bool) -> NSView {
         let slot = NSView()
         let iconInset: CGFloat = 4
         let dotDiameter: CGFloat = 5
@@ -119,8 +119,8 @@ final class WorkspaceHUD {
         icon.translatesAutoresizingMaskIntoConstraints = false
         slot.addSubview(icon)
         NSLayoutConstraint.activate([
-            slot.widthAnchor.constraint(equalToConstant: size),
-            slot.heightAnchor.constraint(equalToConstant: size - iconInset + dotSpacing + dotDiameter),
+            slot.widthAnchor.constraint(equalToConstant: slotWidth),
+            slot.heightAnchor.constraint(equalToConstant: slotWidth - iconInset + dotSpacing + dotDiameter),
             icon.leadingAnchor.constraint(equalTo: slot.leadingAnchor, constant: iconInset),
             icon.trailingAnchor.constraint(equalTo: slot.trailingAnchor, constant: -iconInset),
             icon.topAnchor.constraint(equalTo: slot.topAnchor, constant: iconInset),

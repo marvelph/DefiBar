@@ -20,22 +20,40 @@ private func animateClickFeedback(
 }
 
 @MainActor
-private final class AppIconSlot: NSView {
-    var showsFocus = false
-    var windowID: UInt64?
+private final class WindowIconSlot: NSView {
+    let windowID: UInt64
+    private let showsFocus: Bool
+    private let appName: String
     private var hoverArea: NSTrackingArea?
     private var titleRequest: Task<Void, Never>?
-    private var appName: String?
 
-    func configureTooltip(appName: String) {
-        self.appName = appName
-        updateTooltip(title: nil)
+    init(window: WorkspaceState.Window, image: NSImage) {
+        windowID = window.id
+        showsFocus = window.selected
+        appName = NSRunningApplication.runningApplications(withBundleIdentifier: window.appID).first?.localizedName
+            ?? window.appID
+        super.init(frame: .zero)
+
+        let icon = NSImageView(image: image)
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(icon)
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: iconSlotWidth),
+            heightAnchor.constraint(equalToConstant: workspaceButtonHeight),
+            icon.centerXAnchor.constraint(equalTo: centerXAnchor),
+            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: iconSize),
+            icon.heightAnchor.constraint(equalToConstant: iconSize)
+        ])
+        toolTip = appName
     }
+
+    required init?(coder: NSCoder) { nil }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let hoverArea { removeTrackingArea(hoverArea) }
-        guard windowID != nil else { return }
         let area = NSTrackingArea(
             rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
             owner: self, userInfo: nil
@@ -45,9 +63,8 @@ private final class AppIconSlot: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        guard let windowID else { return }
         titleRequest?.cancel()
-        titleRequest = Task { [weak self] in
+        titleRequest = Task { [weak self, windowID] in
             let title = await Task.detached(priority: .utility) {
                 try? DefiClient.windowTitle(for: windowID)
             }.value
@@ -63,7 +80,6 @@ private final class AppIconSlot: NSView {
     }
 
     private func updateTooltip(title: String?) {
-        guard let appName else { return }
         let title = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let text = title.isEmpty ? appName : "\(appName) · \(title)"
         if toolTip != text { toolTip = text }
@@ -103,7 +119,7 @@ final class WorkspaceButton: NSButton {
     let display: Int
     let position: Int
     let isActive: Bool
-    private var windowSlots: [AppIconSlot] = []
+    private var windowSlots: [WindowIconSlot] = []
 
     func windowID(at pointInWindow: NSPoint) -> UInt64? {
         windowSlots.first { $0.bounds.contains($0.convert(pointInWindow, from: nil)) }?.windowID
@@ -116,7 +132,6 @@ final class WorkspaceButton: NSButton {
     init(
         workspace: WorkspaceState.Workspace,
         display: Int,
-        showsWindowDetails: Bool,
         icon: (String) -> NSImage
     ) {
         self.display = display
@@ -152,9 +167,7 @@ final class WorkspaceButton: NSButton {
         }
         let horizontalInset: CGFloat = 6
         let labelSpacing: CGFloat = 2
-        let (iconViews, iconWidth) = makeIconViews(
-            for: workspace, showsWindowDetails: showsWindowDetails, icon: icon
-        )
+        let (iconViews, iconWidth) = makeIconViews(for: workspace, icon: icon)
 
         let content = NSStackView(views: [labelView] + iconViews)
         content.orientation = .horizontal
@@ -187,8 +200,10 @@ final class WorkspaceButton: NSButton {
             heightAnchor.constraint(equalToConstant: workspaceButtonHeight)
         ])
 
-        let windowCount = String.localizedStringWithFormat(localized("workspace.windowCount"), workspace.windowCount)
-        toolTip = "\(workspace.label) · \(windowCount)"
+        if !workspace.active {
+            let windowCount = String.localizedStringWithFormat(localized("workspace.windowCount"), workspace.windowCount)
+            toolTip = "\(workspace.label) · \(windowCount)"
+        }
         setAccessibilityLabel(workspace.label)
         if let bundleID = workspace.focusedApplication, workspace.active, !iconViews.isEmpty {
             let name = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName
@@ -200,39 +215,15 @@ final class WorkspaceButton: NSButton {
 
     private func makeIconViews(
         for workspace: WorkspaceState.Workspace,
-        showsWindowDetails: Bool,
         icon: (String) -> NSImage
     ) -> (views: [NSView], width: CGFloat) {
         guard workspace.active else { return ([], 0) }
 
-        func makeSlot(appID: String, window: WorkspaceState.Window? = nil) -> AppIconSlot {
-            let view = NSImageView(image: icon(appID))
-            view.imageScaling = .scaleProportionallyUpOrDown
-            view.translatesAutoresizingMaskIntoConstraints = false
-            let slot = AppIconSlot(frame: .zero)
-            slot.showsFocus = window?.selected ?? (appID == workspace.focusedApplication)
-            slot.windowID = window?.id
-            slot.addSubview(view)
-            NSLayoutConstraint.activate([
-                slot.widthAnchor.constraint(equalToConstant: iconSlotWidth),
-                slot.heightAnchor.constraint(equalToConstant: workspaceButtonHeight),
-                view.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
-                view.centerYAnchor.constraint(equalTo: slot.centerYAnchor),
-                view.widthAnchor.constraint(equalToConstant: iconSize),
-                view.heightAnchor.constraint(equalToConstant: iconSize)
-            ])
-            if window != nil {
-                let appName = NSRunningApplication.runningApplications(withBundleIdentifier: appID).first?.localizedName
-                    ?? appID
-                slot.configureTooltip(appName: appName)
-                windowSlots.append(slot)
-            }
-            return slot
-        }
-
         var iconViews: [NSView] = []
         var iconWidth: CGFloat = 0
-        func appendSlot(_ slot: AppIconSlot) {
+        func appendWindow(_ window: WorkspaceState.Window) {
+            let slot = WindowIconSlot(window: window, image: icon(window.appID))
+            windowSlots.append(slot)
             iconViews.append(slot)
             iconWidth += iconSlotWidth
         }
@@ -278,32 +269,25 @@ final class WorkspaceButton: NSButton {
             iconWidth += width
         }
 
-        if showsWindowDetails {
-            var markedFullscreen = false
-            for column in workspace.tiledColumns {
-                if !markedFullscreen, column.first?.nativeFullscreen == true {
-                    appendWindowGroupSymbol("arrow.up.left.and.arrow.down.right", fallback: "⤢")
-                    markedFullscreen = true
-                }
-                let stacked = column.count > 1
-                if stacked { appendWindowGroupMarker("[") }
-                for window in column {
-                    appendSlot(makeSlot(appID: window.appID, window: window))
-                }
-                if stacked { appendWindowGroupMarker("]") }
+        var markedFullscreen = false
+        for column in workspace.tiledColumns {
+            if !markedFullscreen, column.first?.nativeFullscreen == true {
+                appendWindowGroupSymbol("arrow.up.left.and.arrow.down.right", fallback: "⤢")
+                markedFullscreen = true
             }
-            let floating = workspace.windows.filter(\.floating)
-            if !floating.isEmpty {
-                appendWindowGroupSymbol("macwindow.on.rectangle", fallback: "❐")
+            let stacked = column.count > 1
+            if stacked { appendWindowGroupMarker("[") }
+            for window in column {
+                appendWindow(window)
             }
-            for window in floating {
-                appendSlot(makeSlot(appID: window.appID, window: window))
-            }
-        } else {
-            var seen = Set<String>()
-            for appID in workspace.applications where seen.insert(appID).inserted {
-                appendSlot(makeSlot(appID: appID))
-            }
+            if stacked { appendWindowGroupMarker("]") }
+        }
+        let floating = workspace.windows.filter(\.floating)
+        if !floating.isEmpty {
+            appendWindowGroupSymbol("macwindow.on.rectangle", fallback: "❐")
+        }
+        for window in floating {
+            appendWindow(window)
         }
         return (iconViews, iconWidth)
     }

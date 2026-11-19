@@ -8,11 +8,10 @@
 
 DefiBar displays [Defi](https://github.com/qeude/Defi) workspaces in a single row in the macOS menu bar. It shows workspaces for the display that Defi reports as focused. Named workspaces show their names, and unnamed workspaces show their numbers.
 
-![DefiBar in the macOS menu bar with Show Window Arrangement enabled](docs/defibar-screenshot.png)
+![DefiBar showing windows in the macOS menu bar](docs/defibar-screenshot.png)
 
 - Click a workspace button to switch to that workspace on the display.
-- By default, the active workspace shows one icon per app. Clicking an app icon is the same as clicking its workspace button.
-- Right-click the DefiBar area and choose **Show Window Arrangement** to show one icon per window in the active workspace. Click an icon to focus its window. Square brackets group windows stacked in the same column. A diagonal arrow symbol marks native fullscreen windows when Defi reports their status, and an overlapping window symbol marks floating windows. The mark below an icon shows the selected window. Hover over an icon to see its app name and window title, when available.
+- The active workspace shows one icon per window. Click an icon to focus its window. Square brackets group windows stacked in the same column. A diagonal arrow symbol marks native fullscreen windows when Defi reports their status, and an overlapping window symbol marks floating windows. The mark below an icon shows the selected window. Hover over an icon to see its app name and window title, when available.
 - The right-click menu also lets you enable **Launch at Login**, check the version under **About DefiBar**, open Defi settings, or quit DefiBar. When workspaces are unavailable, the DefiBar icon appears in the menu bar. Hover over it or open the right-click menu to check the current status.
 
 ## Build and run

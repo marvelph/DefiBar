@@ -131,8 +131,6 @@ private final class StatusRow: NSStackView {
 
 @MainActor
 final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    private static let showsWindowDetailsKey = "showsWindowDetails"
-    private var showsWindowDetails = UserDefaults.standard.bool(forKey: showsWindowDetailsKey)
     // The bundle identifier and notification prefix differ across Defi versions.
     private static let defiIdentifiers = ["com.qeude.defi", "com.quentin.defi"]
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -321,10 +319,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusButton.setAccessibilityLabel("DefiBar")
         guard let monitor = focusedMonitor else { return }
         for workspace in monitor.workspaces.sorted(by: { $0.position < $1.position }) {
-            let button = WorkspaceButton(
-                workspace: workspace, display: monitor.display,
-                showsWindowDetails: showsWindowDetails, icon: icon(for:)
-            )
+            let button = WorkspaceButton(workspace: workspace, display: monitor.display, icon: icon(for:))
             button.target = self
             button.action = #selector(switchWorkspace(_:))
             row.addArrangedSubview(button)
@@ -411,12 +406,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func toggleWindowDetails() {
-        showsWindowDetails.toggle()
-        UserDefaults.standard.set(showsWindowDetails, forKey: Self.showsWindowDetailsKey)
-        render()
-    }
-
     @objc private func toggleLaunchAtLogin() {
         let service = SMAppService.mainApp
         do {
@@ -460,13 +449,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .requiresApproval: login.state = .mixed
         default: login.state = .off
         }
-        let mode = menu.addItem(
-            withTitle: localized("menu.showWindowArrangement"),
-            action: #selector(toggleWindowDetails),
-            keyEquivalent: ""
-        )
-        mode.target = self
-        mode.state = showsWindowDetails ? .on : .off
         menu.addItem(.separator())
         if let status = unavailableStatus {
             let statusItem = menu.addItem(withTitle: status, action: nil, keyEquivalent: "")

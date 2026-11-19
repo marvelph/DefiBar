@@ -57,6 +57,8 @@ final class WorkspaceHUD {
             row.alignment = .centerY
             row.spacing = iconSpacing
             content.addArrangedSubview(row)
+            let rowWidth = CGFloat(icons.count) * iconSize + CGFloat(icons.count - 1) * iconSpacing
+            row.widthAnchor.constraint(equalToConstant: rowWidth).isActive = true
         }
 
         let contentWidth = ceil(content.fittingSize.width)
@@ -90,6 +92,7 @@ final class WorkspaceHUD {
         ])
 
         panel.contentView = root
+        root.layoutSubtreeIfNeeded()
         self.panel = panel
         panel.orderFrontRegardless()
 

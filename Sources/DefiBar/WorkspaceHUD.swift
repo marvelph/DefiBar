@@ -39,31 +39,43 @@ final class WorkspaceHUD {
 
         let visibleFrame = screen.visibleFrame
         let maximumWidth = visibleFrame.width - 16
+        let horizontalPadding: CGFloat = 24
         let content = NSStackView(views: [heading])
         content.orientation = .vertical
         content.alignment = .centerX
         content.spacing = 8
 
-        let iconSlotWidth: CGFloat = 72
-        let iconSpacing: CGFloat = 6
-        let iconsPerRow = max(1, Int((maximumWidth - 48 + iconSpacing) / (iconSlotWidth + iconSpacing)))
+        let appIconSize: CGFloat = 64
+        let iconSpacing: CGFloat = 14
+        let rowInset: CGFloat = 4
+        let iconStride = appIconSize + iconSpacing
+        let maximumRowWidth = maximumWidth - 2 * horizontalPadding
+        let iconsPerRow = max(1, Int((maximumRowWidth - 2 * rowInset + iconSpacing) / iconStride))
         for start in stride(from: 0, to: workspace.applications.count, by: iconsPerRow) {
             let end = min(start + iconsPerRow, workspace.applications.count)
             let icons = workspace.applications[start..<end].map { appID in
-                makeAppIcon(appIcon(appID), slotWidth: iconSlotWidth, selected: appID == workspace.focusedApplication)
+                let view = NSImageView(image: appIcon(appID))
+                view.imageScaling = .scaleProportionallyUpOrDown
+                NSLayoutConstraint.activate([
+                    view.widthAnchor.constraint(equalToConstant: appIconSize),
+                    view.heightAnchor.constraint(equalTo: view.widthAnchor)
+                ])
+                return view
             }
             let row = NSStackView(views: icons)
             row.orientation = .horizontal
             row.alignment = .centerY
             row.spacing = iconSpacing
+            row.edgeInsets = NSEdgeInsets(top: rowInset, left: rowInset, bottom: rowInset, right: rowInset)
             content.addArrangedSubview(row)
-            let rowWidth = CGFloat(icons.count) * iconSlotWidth + CGFloat(icons.count - 1) * iconSpacing
+            let rowWidth = CGFloat(icons.count) * iconStride - iconSpacing + 2 * rowInset
             row.widthAnchor.constraint(equalToConstant: rowWidth).isActive = true
         }
 
-        let contentWidth = ceil(content.fittingSize.width)
-        let width = min(max(contentWidth + 48, 76), maximumWidth)
-        let height = max(64, ceil(content.fittingSize.height) + 32)
+        let contentSize = content.fittingSize
+        let contentWidth = ceil(contentSize.width)
+        let width = min(max(contentWidth + 2 * horizontalPadding, 76), maximumWidth)
+        let height = max(64, ceil(contentSize.height) + 32)
         let frame = NSRect(x: visibleFrame.midX - width / 2, y: visibleFrame.midY - height / 2,
                            width: width, height: height)
 
@@ -86,7 +98,7 @@ final class WorkspaceHUD {
         root.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            content.widthAnchor.constraint(equalToConstant: min(contentWidth, width - 24)),
+            content.widthAnchor.constraint(equalToConstant: min(contentWidth, width - horizontalPadding)),
             content.centerXAnchor.constraint(equalTo: root.centerXAnchor),
             content.centerYAnchor.constraint(equalTo: root.centerYAnchor)
         ])
@@ -107,40 +119,6 @@ final class WorkspaceHUD {
             panel.orderOut(nil)
             self?.panel = nil
         }
-    }
-
-    private func makeAppIcon(_ image: NSImage, slotWidth: CGFloat, selected: Bool) -> NSView {
-        let slot = NSView()
-        let iconInset: CGFloat = 4
-        let dotDiameter: CGFloat = 5
-        let dotSpacing: CGFloat = 3
-        let icon = NSImageView(image: image)
-        icon.imageScaling = .scaleProportionallyUpOrDown
-        icon.translatesAutoresizingMaskIntoConstraints = false
-        slot.addSubview(icon)
-        NSLayoutConstraint.activate([
-            slot.widthAnchor.constraint(equalToConstant: slotWidth),
-            slot.heightAnchor.constraint(equalToConstant: slotWidth - iconInset + dotSpacing + dotDiameter),
-            icon.leadingAnchor.constraint(equalTo: slot.leadingAnchor, constant: iconInset),
-            icon.trailingAnchor.constraint(equalTo: slot.trailingAnchor, constant: -iconInset),
-            icon.topAnchor.constraint(equalTo: slot.topAnchor, constant: iconInset),
-            icon.heightAnchor.constraint(equalTo: icon.widthAnchor)
-        ])
-        if selected {
-            let dot = NSView()
-            dot.wantsLayer = true
-            dot.layer?.backgroundColor = NSColor.systemBlue.cgColor
-            dot.layer?.cornerRadius = dotDiameter / 2
-            dot.translatesAutoresizingMaskIntoConstraints = false
-            slot.addSubview(dot)
-            NSLayoutConstraint.activate([
-                dot.widthAnchor.constraint(equalToConstant: dotDiameter),
-                dot.heightAnchor.constraint(equalTo: dot.widthAnchor),
-                dot.centerXAnchor.constraint(equalTo: icon.centerXAnchor),
-                dot.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: dotSpacing)
-            ])
-        }
-        return slot
     }
 }
 

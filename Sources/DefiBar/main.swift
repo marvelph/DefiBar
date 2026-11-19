@@ -1,5 +1,6 @@
 import AppKit
 import ServiceManagement
+import Sparkle
 import UniformTypeIdentifiers
 
 func localized(_ key: String) -> String {
@@ -145,6 +146,13 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let workspaceHUD = WorkspaceHUD()
     private var icons: [String: NSImage] = [:]
     private var connectionStatusKey = "status.connecting"
+    private lazy var updaterController: SPUStandardUpdaterController? = {
+        guard let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String, !feed.isEmpty,
+              let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String, !key.isEmpty else {
+            return nil
+        }
+        return SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+    }()
 
     private lazy var connectingIcon = makeConnectionIcon(showsWarning: false)
     private lazy var warningIcon = makeConnectionIcon(showsWarning: true)
@@ -180,6 +188,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = updaterController
         guard let button = item.button else { return }
         button.target = self
         button.action = #selector(statusItemClicked(_:))
@@ -437,6 +446,14 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         let about = menu.addItem(withTitle: localized("menu.about"), action: #selector(showAboutPanel), keyEquivalent: "")
         about.target = self
+        if let updaterController {
+            let update = menu.addItem(
+                withTitle: localized("menu.checkForUpdates"),
+                action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                keyEquivalent: ""
+            )
+            update.target = updaterController
+        }
         menu.addItem(.separator())
         let login = menu.addItem(
             withTitle: localized("menu.launchAtLogin"),

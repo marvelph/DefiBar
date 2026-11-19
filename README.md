@@ -25,6 +25,8 @@ open .build/DefiBar.app
 
 The `DefiBar.app` built by `build-app.sh` is not notarized by Apple. If you download the built app onto another Mac, macOS may block it from opening the first time. See [Apple’s guide to safely opening apps on your Mac](https://support.apple.com/en-us/102445).
 
+Sparkle-enabled releases offer **Check for Updates…** in the right-click menu. If you installed v0.4.0 or earlier, install a Sparkle-enabled release manually once. See the [release instructions](docs/releasing.md) for preparing signed updates.
+
 DefiBar looks for the CLI in `~/Applications/Defi.app`, `/Applications/Defi.app`, and then on its runtime `PATH`. To use a CLI in another location, quit DefiBar and relaunch it with the absolute path to the CLI.
 
 ```sh

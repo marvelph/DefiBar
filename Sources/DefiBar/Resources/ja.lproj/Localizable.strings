@@ -10,3 +10,4 @@
 "menu.quit" = "DefiBar を終了";
 "menu.launchAtLogin" = "ログイン時に起動";
 "menu.about" = "DefiBarについて";
+"menu.checkForUpdates" = "アップデートを確認…";

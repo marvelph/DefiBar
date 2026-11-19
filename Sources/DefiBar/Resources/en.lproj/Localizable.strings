@@ -10,3 +10,4 @@
 "menu.quit" = "Quit DefiBar";
 "menu.launchAtLogin" = "Launch at Login";
 "menu.about" = "About DefiBar";
+"menu.checkForUpdates" = "Check for Updates…";

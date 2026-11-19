@@ -25,6 +25,8 @@ open .build/DefiBar.app
 
 `build-app.sh` で生成した `DefiBar.app` は Apple の公証を受けていません。生成したアプリを別の Mac にダウンロードして開くと、macOS が初回起動をブロックする場合があります。[Apple サポート「Macでアプリを安全に開く」](https://support.apple.com/ja-jp/102445)を参照してください。
 
+Sparkle 対応リリースでは、右クリックメニューから **アップデートを確認…** を選べます。v0.4.0 以前をお使いの場合は、最初の Sparkle 対応リリースを手動でインストールしてください。署名付きアップデートの作成手順は [リリース手順](docs/releasing.md)を参照してください。
+
 DefiBar は `~/Applications/Defi.app`、`/Applications/Defi.app`、実行時の `PATH` の順に CLI を探します。別の場所にある CLI を指定する場合は、アプリを終了してから絶対パスを使って起動できます。
 
 ```sh

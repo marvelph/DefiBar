@@ -132,6 +132,9 @@ final class WorkspaceButton: NSButton {
     init(
         workspace: WorkspaceState.Workspace,
         display: Int,
+        showsWorkspaceIcon: Bool,
+        showsWorkspaceName: Bool,
+        showsActiveWorkspaceWindows: Bool,
         icon: (String) -> NSImage
     ) {
         self.display = display
@@ -146,12 +149,14 @@ final class WorkspaceButton: NSButton {
         layer?.borderWidth = 1
         updateSurfaceColors()
 
-        let label = NSTextField(labelWithString: workspace.label)
-        label.font = .systemFont(ofSize: 12, weight: workspace.active ? .semibold : .medium)
+        let labelText = workspace.label(showingName: showsWorkspaceName)
+        let label = NSTextField(labelWithString: labelText)
+        let labelWeight: NSFont.Weight = isActive ? .semibold : .medium
+        label.font = .systemFont(ofSize: 12, weight: labelWeight)
         let labelView: NSView
         let labelWidth: CGFloat
         let labelSymbolConfiguration = NSImage.SymbolConfiguration(
-            pointSize: 12, weight: workspace.active ? .semibold : .medium
+            pointSize: 12, weight: labelWeight
         )
         if workspace.kind == "trailing",
            let image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
@@ -167,7 +172,8 @@ final class WorkspaceButton: NSButton {
         }
         let horizontalInset: CGFloat = 6
         let labelSpacing: CGFloat = 2
-        let (iconViews, iconWidth) = makeIconViews(for: workspace, icon: icon)
+        let showsWindows = isActive && showsActiveWorkspaceWindows
+        let (iconViews, iconWidth) = showsWindows ? makeIconViews(for: workspace, icon: icon) : ([], 0)
 
         let content = NSStackView(views: [labelView] + iconViews)
         content.orientation = .horizontal
@@ -175,7 +181,7 @@ final class WorkspaceButton: NSButton {
         content.spacing = 0
         content.setCustomSpacing(labelSpacing, after: labelView)
         var workspaceLabelWidth = labelWidth
-        if let image = workspace.symbolImage {
+        if showsWorkspaceIcon, let image = workspace.symbolImage {
             let view = NSImageView(image: image)
             let spacing: CGFloat = 4
             view.imageScaling = .scaleProportionallyUpOrDown
@@ -200,12 +206,12 @@ final class WorkspaceButton: NSButton {
             heightAnchor.constraint(equalToConstant: workspaceButtonHeight)
         ])
 
-        if !workspace.active {
+        if !showsWindows {
             let windowCount = String.localizedStringWithFormat(localized("workspace.windowCount"), workspace.windowCount)
-            toolTip = "\(workspace.label) · \(windowCount)"
+            toolTip = "\(labelText) · \(windowCount)"
         }
-        setAccessibilityLabel(workspace.label)
-        if let bundleID = workspace.focusedApplication, workspace.active, !iconViews.isEmpty {
+        setAccessibilityLabel(labelText)
+        if let bundleID = workspace.focusedApplication, !iconViews.isEmpty {
             let name = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName
                 ?? bundleID
             setAccessibilityValue(String(format: localized("workspace.selectedApp"), name))
@@ -217,8 +223,6 @@ final class WorkspaceButton: NSButton {
         for workspace: WorkspaceState.Workspace,
         icon: (String) -> NSImage
     ) -> (views: [NSView], width: CGFloat) {
-        guard workspace.active else { return ([], 0) }
-
         var iconViews: [NSView] = []
         var iconWidth: CGFloat = 0
         func appendWindow(_ window: WorkspaceState.Window) {

@@ -52,8 +52,12 @@ struct WorkspaceState: Decodable, Sendable {
         }
 
         var label: String {
+            label(showingName: true)
+        }
+
+        func label(showingName: Bool) -> String {
             if kind == "trailing" { return "+" }
-            if kind == "ordinary" { return "#\(position)" }
+            if !showingName || kind == "ordinary" { return "#\(position)" }
             guard let name, !name.isEmpty else { return String(position) }
             return name
         }
@@ -134,6 +138,9 @@ private final class StatusRow: NSStackView {
 final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // The bundle identifier and notification prefix differ across Defi versions.
     private static let defiIdentifiers = ["com.qeude.defi", "com.quentin.defi"]
+    private static let showsWorkspaceIconsKey = "showsWorkspaceIcons"
+    private static let showsWorkspaceNamesKey = "showsWorkspaceNames"
+    private static let showsActiveWorkspaceWindowsKey = "showsActiveWorkspaceWindows"
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let row = StatusRow()
     private var state: WorkspaceState?
@@ -188,6 +195,11 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.register(defaults: [
+            Self.showsWorkspaceIconsKey: true,
+            Self.showsWorkspaceNamesKey: true,
+            Self.showsActiveWorkspaceWindowsKey: true
+        ])
         _ = updaterController
         guard let button = item.button else { return }
         button.target = self
@@ -327,8 +339,16 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusButton.title = ""
         statusButton.setAccessibilityLabel("DefiBar")
         guard let monitor = focusedMonitor else { return }
+        let showsWorkspaceIcons = self.showsWorkspaceIcons
+        let showsWorkspaceNames = self.showsWorkspaceNames
+        let showsActiveWorkspaceWindows = self.showsActiveWorkspaceWindows
         for workspace in monitor.workspaces.sorted(by: { $0.position < $1.position }) {
-            let button = WorkspaceButton(workspace: workspace, display: monitor.display, icon: icon(for:))
+            let button = WorkspaceButton(
+                workspace: workspace, display: monitor.display,
+                showsWorkspaceIcon: showsWorkspaceIcons, showsWorkspaceName: showsWorkspaceNames,
+                showsActiveWorkspaceWindows: showsActiveWorkspaceWindows,
+                icon: icon(for:)
+            )
             button.target = self
             button.action = #selector(switchWorkspace(_:))
             row.addArrangedSubview(button)
@@ -440,6 +460,33 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.orderFrontStandardAboutPanel(nil)
     }
 
+    private var showsWorkspaceIcons: Bool {
+        UserDefaults.standard.bool(forKey: Self.showsWorkspaceIconsKey)
+    }
+
+    @objc private func toggleWorkspaceIcons() {
+        UserDefaults.standard.set(!showsWorkspaceIcons, forKey: Self.showsWorkspaceIconsKey)
+        render()
+    }
+
+    private var showsWorkspaceNames: Bool {
+        UserDefaults.standard.bool(forKey: Self.showsWorkspaceNamesKey)
+    }
+
+    @objc private func toggleWorkspaceNames() {
+        UserDefaults.standard.set(!showsWorkspaceNames, forKey: Self.showsWorkspaceNamesKey)
+        render()
+    }
+
+    private var showsActiveWorkspaceWindows: Bool {
+        UserDefaults.standard.bool(forKey: Self.showsActiveWorkspaceWindowsKey)
+    }
+
+    @objc private func toggleActiveWorkspaceWindows() {
+        UserDefaults.standard.set(!showsActiveWorkspaceWindows, forKey: Self.showsActiveWorkspaceWindowsKey)
+        render()
+    }
+
     private func showMenu() {
         guard item.menu == nil, let button = item.button else { return }
         let menu = NSMenu()
@@ -466,6 +513,27 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .requiresApproval: login.state = .mixed
         default: login.state = .off
         }
+        let workspaceIcons = menu.addItem(
+            withTitle: localized("menu.showWorkspaceIcons"),
+            action: #selector(toggleWorkspaceIcons),
+            keyEquivalent: ""
+        )
+        workspaceIcons.target = self
+        workspaceIcons.state = showsWorkspaceIcons ? .on : .off
+        let workspaceNames = menu.addItem(
+            withTitle: localized("menu.showWorkspaceNames"),
+            action: #selector(toggleWorkspaceNames),
+            keyEquivalent: ""
+        )
+        workspaceNames.target = self
+        workspaceNames.state = showsWorkspaceNames ? .on : .off
+        let activeWorkspaceWindows = menu.addItem(
+            withTitle: localized("menu.showActiveWorkspaceWindows"),
+            action: #selector(toggleActiveWorkspaceWindows),
+            keyEquivalent: ""
+        )
+        activeWorkspaceWindows.target = self
+        activeWorkspaceWindows.state = showsActiveWorkspaceWindows ? .on : .off
         menu.addItem(.separator())
         if let status = unavailableStatus {
             let statusItem = menu.addItem(withTitle: status, action: nil, keyEquivalent: "")

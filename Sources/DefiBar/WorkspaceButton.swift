@@ -206,7 +206,7 @@ final class WorkspaceButton: NSButton {
             heightAnchor.constraint(equalToConstant: workspaceButtonHeight)
         ])
 
-        if !showsWindows {
+        if iconViews.isEmpty {
             let windowCount = String.localizedStringWithFormat(localized("workspace.windowCount"), workspace.windowCount)
             toolTip = "\(labelText) · \(windowCount)"
         }

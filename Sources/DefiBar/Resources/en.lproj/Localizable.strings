@@ -12,6 +12,7 @@
 "menu.showInactiveWorkspaces" = "Show Inactive Workspaces";
 "menu.showWorkspaceIcons" = "Show Workspace Icons";
 "menu.showWorkspaceNames" = "Show Workspace Names";
+"menu.showWorkspaceNumberSign" = "Prefix Workspace Numbers with #";
 "menu.showActiveWorkspaceWindows" = "Show Windows in the Active Workspace";
 "menu.showTrailingWorkspaceIcon" = "Show the Trailing Workspace as +";
 "menu.showWorkspaceInfoOnSwitch" = "Show Workspace Info When Switching";

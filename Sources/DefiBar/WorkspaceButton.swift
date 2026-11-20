@@ -134,6 +134,7 @@ final class WorkspaceButton: NSButton {
         display: Int,
         showsWorkspaceIcon: Bool,
         showsWorkspaceName: Bool,
+        showsWorkspaceNumberSign: Bool,
         showsActiveWorkspaceWindows: Bool,
         showsTrailingWorkspaceIcon: Bool,
         icon: (String) -> NSImage
@@ -151,7 +152,9 @@ final class WorkspaceButton: NSButton {
         updateSurfaceColors()
 
         let labelText = workspace.label(
-            showingName: showsWorkspaceName, showingTrailingIcon: showsTrailingWorkspaceIcon
+            showingName: showsWorkspaceName,
+            showingNumberSign: showsWorkspaceNumberSign,
+            showingTrailingIcon: showsTrailingWorkspaceIcon
         )
         let label = NSTextField(labelWithString: labelText)
         let labelWeight: NSFont.Weight = isActive ? .semibold : .medium

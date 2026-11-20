@@ -9,6 +9,7 @@ final class WorkspaceHUD {
     func show(
         _ workspace: WorkspaceState.Workspace,
         showsWorkspaceName: Bool,
+        showsWorkspaceNumberSign: Bool,
         showsTrailingWorkspaceIcon: Bool,
         showsApplications: Bool,
         appIcon: (String) -> NSImage,
@@ -17,7 +18,9 @@ final class WorkspaceHUD {
         dismiss()
 
         let label = NSTextField(labelWithString: workspace.label(
-            showingName: showsWorkspaceName, showingTrailingIcon: showsTrailingWorkspaceIcon
+            showingName: showsWorkspaceName,
+            showingNumberSign: showsWorkspaceNumberSign,
+            showingTrailingIcon: showsTrailingWorkspaceIcon
         ))
         label.font = .systemFont(ofSize: 24, weight: .semibold)
         label.alignment = .center

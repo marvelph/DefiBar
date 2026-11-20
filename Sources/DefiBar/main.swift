@@ -51,11 +51,10 @@ struct WorkspaceState: Decodable, Sendable {
             return NSImage(systemSymbolName: icon, accessibilityDescription: nil)
         }
 
-        func label(showingName: Bool, showingTrailingIcon: Bool) -> String {
-            let numberedLabel = "#\(position)"
+        func label(showingName: Bool, showingNumberSign: Bool, showingTrailingIcon: Bool) -> String {
+            let numberedLabel = showingNumberSign ? "#\(position)" : String(position)
             if kind == "trailing" { return showingTrailingIcon ? "+" : numberedLabel }
-            if !showingName || kind == "ordinary" { return numberedLabel }
-            guard let name, !name.isEmpty else { return String(position) }
+            guard showingName, kind != "ordinary", let name, !name.isEmpty else { return numberedLabel }
             return name
         }
     }
@@ -138,6 +137,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let showsInactiveWorkspacesKey = "showsInactiveWorkspaces"
     private static let showsWorkspaceIconsKey = "showsWorkspaceIcons"
     private static let showsWorkspaceNamesKey = "showsWorkspaceNames"
+    private static let showsWorkspaceNumberSignKey = "showsWorkspaceNumberSign"
     private static let showsActiveWorkspaceWindowsKey = "showsActiveWorkspaceWindows"
     private static let showsTrailingWorkspaceIconKey = "showsTrailingWorkspaceIcon"
     private static let showsWorkspaceSwitchHUDKey = "showsWorkspaceSwitchHUD"
@@ -200,6 +200,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Self.showsInactiveWorkspacesKey: true,
             Self.showsWorkspaceIconsKey: true,
             Self.showsWorkspaceNamesKey: true,
+            Self.showsWorkspaceNumberSignKey: true,
             Self.showsActiveWorkspaceWindowsKey: true,
             Self.showsTrailingWorkspaceIconKey: true,
             Self.showsWorkspaceSwitchHUDKey: true,
@@ -315,6 +316,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         workspaceHUD.show(
             workspace,
             showsWorkspaceName: showsWorkspaceNames,
+            showsWorkspaceNumberSign: showsWorkspaceNumberSign,
             showsTrailingWorkspaceIcon: showsTrailingWorkspaceIcon,
             showsApplications: showsApplicationsInWorkspaceHUD,
             appIcon: icon(for:),
@@ -358,12 +360,14 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let monitor = focusedMonitor else { return }
         let showsWorkspaceIcons = self.showsWorkspaceIcons
         let showsWorkspaceNames = self.showsWorkspaceNames
+        let showsWorkspaceNumberSign = self.showsWorkspaceNumberSign
         let showsActiveWorkspaceWindows = self.showsActiveWorkspaceWindows
         let showsTrailingWorkspaceIcon = self.showsTrailingWorkspaceIcon
         for workspace in visibleWorkspaces.sorted(by: { $0.position < $1.position }) {
             let button = WorkspaceButton(
                 workspace: workspace, display: monitor.display,
                 showsWorkspaceIcon: showsWorkspaceIcons, showsWorkspaceName: showsWorkspaceNames,
+                showsWorkspaceNumberSign: showsWorkspaceNumberSign,
                 showsActiveWorkspaceWindows: showsActiveWorkspaceWindows,
                 showsTrailingWorkspaceIcon: showsTrailingWorkspaceIcon,
                 icon: icon(for:)
@@ -506,6 +510,15 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         render()
     }
 
+    private var showsWorkspaceNumberSign: Bool {
+        UserDefaults.standard.bool(forKey: Self.showsWorkspaceNumberSignKey)
+    }
+
+    @objc private func toggleWorkspaceNumberSign() {
+        UserDefaults.standard.set(!showsWorkspaceNumberSign, forKey: Self.showsWorkspaceNumberSignKey)
+        render()
+    }
+
     private var showsActiveWorkspaceWindows: Bool {
         UserDefaults.standard.bool(forKey: Self.showsActiveWorkspaceWindowsKey)
     }
@@ -589,13 +602,13 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         workspaceNames.target = self
         workspaceNames.state = showsWorkspaceNames ? .on : .off
-        let activeWorkspaceWindows = menu.addItem(
-            withTitle: localized("menu.showActiveWorkspaceWindows"),
-            action: #selector(toggleActiveWorkspaceWindows),
+        let workspaceNumberSign = menu.addItem(
+            withTitle: localized("menu.showWorkspaceNumberSign"),
+            action: #selector(toggleWorkspaceNumberSign),
             keyEquivalent: ""
         )
-        activeWorkspaceWindows.target = self
-        activeWorkspaceWindows.state = showsActiveWorkspaceWindows ? .on : .off
+        workspaceNumberSign.target = self
+        workspaceNumberSign.state = showsWorkspaceNumberSign ? .on : .off
         let trailingWorkspaceIcon = menu.addItem(
             withTitle: localized("menu.showTrailingWorkspaceIcon"),
             action: #selector(toggleTrailingWorkspaceIcon),
@@ -603,6 +616,13 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         trailingWorkspaceIcon.target = self
         trailingWorkspaceIcon.state = showsTrailingWorkspaceIcon ? .on : .off
+        let activeWorkspaceWindows = menu.addItem(
+            withTitle: localized("menu.showActiveWorkspaceWindows"),
+            action: #selector(toggleActiveWorkspaceWindows),
+            keyEquivalent: ""
+        )
+        activeWorkspaceWindows.target = self
+        activeWorkspaceWindows.state = showsActiveWorkspaceWindows ? .on : .off
         let workspaceSwitchHUD = menu.addItem(
             withTitle: localized("menu.showWorkspaceInfoOnSwitch"),
             action: #selector(toggleWorkspaceSwitchHUD),

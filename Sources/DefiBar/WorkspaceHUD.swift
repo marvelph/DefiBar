@@ -8,91 +8,27 @@ final class WorkspaceHUD {
 
     func show(
         _ workspace: WorkspaceState.Workspace,
-        showsWorkspaceName: Bool,
-        showsWorkspaceNumberSign: Bool,
-        showsTrailingWorkspaceIcon: Bool,
+        labelStyle: WorkspaceState.Workspace.LabelStyle,
         showsApplications: Bool,
         appIcon: (String) -> NSImage,
         on screen: NSScreen
     ) {
         dismiss()
 
-        let label = NSTextField(labelWithString: workspace.label(
-            showingName: showsWorkspaceName,
-            showingNumberSign: showsWorkspaceNumberSign,
-            showingTrailingIcon: showsTrailingWorkspaceIcon
-        ))
-        label.font = .systemFont(ofSize: 24, weight: .semibold)
-        label.alignment = .center
-        label.lineBreakMode = .byTruncatingTail
-
-        let heading: NSView
-        if let icon = workspace.symbolImage {
-            let stack = NSStackView(views: [label])
-            stack.orientation = .horizontal
-            stack.alignment = .centerY
-            stack.spacing = 9
-            let imageView = NSImageView(image: icon)
-            let size: CGFloat = 22
-            imageView.imageScaling = .scaleProportionallyUpOrDown
-            imageView.contentTintColor = .labelColor
-            stack.insertArrangedSubview(imageView, at: 0)
-            NSLayoutConstraint.activate([
-                imageView.widthAnchor.constraint(equalToConstant: size),
-                imageView.heightAnchor.constraint(equalToConstant: size)
-            ])
-            heading = stack
-        } else {
-            heading = label
-        }
-
         let visibleFrame = screen.visibleFrame
         let maximumWidth = visibleFrame.width - 16
         let horizontalPadding: CGFloat = 24
+        let heading = makeHeading(for: workspace, labelStyle: labelStyle)
         let content = NSStackView(views: [heading])
         content.orientation = .vertical
         content.alignment = .centerX
         content.spacing = 8
 
-        let appIconSize: CGFloat = 64
-        let iconInset: CGFloat = 6
-        let iconTileSize = appIconSize + 2 * iconInset
-        let iconSpacing: CGFloat = 2
-        let rowInset: CGFloat = 4
-        let iconStride = iconTileSize + iconSpacing
-        let maximumRowWidth = maximumWidth - 2 * horizontalPadding
-        let iconsPerRow = max(1, Int((maximumRowWidth - 2 * rowInset + iconSpacing) / iconStride))
-        let applications = showsApplications ? workspace.applications : []
-        for start in stride(from: 0, to: applications.count, by: iconsPerRow) {
-            let end = min(start + iconsPerRow, applications.count)
-            let icons = applications[start..<end].map { appID in
-                let selected = appID == workspace.focusedApplication
-                let view = NSHostingView(rootView:
-                    Image(nsImage: appIcon(appID))
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: appIconSize, height: appIconSize)
-                        .padding(iconInset)
-                        .background(
-                            selected ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.clear),
-                            in: .rect(cornerRadius: 12)
-                        )
-                )
-                view.sizingOptions = []
-                NSLayoutConstraint.activate([
-                    view.widthAnchor.constraint(equalToConstant: iconTileSize),
-                    view.heightAnchor.constraint(equalToConstant: iconTileSize)
-                ])
-                return view
-            }
-            let row = NSStackView(views: icons)
-            row.orientation = .horizontal
-            row.alignment = .centerY
-            row.spacing = iconSpacing
-            row.edgeInsets = NSEdgeInsets(top: rowInset, left: rowInset, bottom: rowInset, right: rowInset)
-            content.addArrangedSubview(row)
-            let rowWidth = CGFloat(icons.count) * iconStride - iconSpacing + 2 * rowInset
-            row.widthAnchor.constraint(equalToConstant: rowWidth).isActive = true
+        if showsApplications {
+            addApplicationRows(
+                workspace.applications, focusedApplication: workspace.focusedApplication,
+                maximumRowWidth: maximumWidth - 2 * horizontalPadding, to: content, appIcon: appIcon
+            )
         }
 
         let contentSize = content.fittingSize
@@ -141,6 +77,81 @@ final class WorkspaceHUD {
             guard !Task.isCancelled else { return }
             panel.orderOut(nil)
             self?.panel = nil
+        }
+    }
+
+    private func makeHeading(
+        for workspace: WorkspaceState.Workspace,
+        labelStyle: WorkspaceState.Workspace.LabelStyle
+    ) -> NSView {
+        let label = NSTextField(labelWithString: workspace.label(style: labelStyle))
+        label.font = .systemFont(ofSize: 24, weight: .semibold)
+        label.alignment = .center
+        label.lineBreakMode = .byTruncatingTail
+
+        if let icon = workspace.symbolImage {
+            let stack = NSStackView(views: [label])
+            stack.orientation = .horizontal
+            stack.alignment = .centerY
+            stack.spacing = 9
+            let imageView = NSImageView(image: icon)
+            let size: CGFloat = 22
+            imageView.imageScaling = .scaleProportionallyUpOrDown
+            imageView.contentTintColor = .labelColor
+            stack.insertArrangedSubview(imageView, at: 0)
+            NSLayoutConstraint.activate([
+                imageView.widthAnchor.constraint(equalToConstant: size),
+                imageView.heightAnchor.constraint(equalToConstant: size)
+            ])
+            return stack
+        }
+        return label
+    }
+
+    private func addApplicationRows(
+        _ applications: [String],
+        focusedApplication: String?,
+        maximumRowWidth: CGFloat,
+        to content: NSStackView,
+        appIcon: (String) -> NSImage
+    ) {
+        let appIconSize: CGFloat = 64
+        let iconInset: CGFloat = 6
+        let iconTileSize = appIconSize + 2 * iconInset
+        let iconSpacing: CGFloat = 2
+        let rowInset: CGFloat = 4
+        let iconStride = iconTileSize + iconSpacing
+        let iconsPerRow = max(1, Int((maximumRowWidth - 2 * rowInset + iconSpacing) / iconStride))
+        for start in stride(from: 0, to: applications.count, by: iconsPerRow) {
+            let end = min(start + iconsPerRow, applications.count)
+            let icons = applications[start..<end].map { appID in
+                let selected = appID == focusedApplication
+                let view = NSHostingView(rootView:
+                    Image(nsImage: appIcon(appID))
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: appIconSize, height: appIconSize)
+                        .padding(iconInset)
+                        .background(
+                            selected ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.clear),
+                            in: .rect(cornerRadius: 12)
+                        )
+                )
+                view.sizingOptions = []
+                NSLayoutConstraint.activate([
+                    view.widthAnchor.constraint(equalToConstant: iconTileSize),
+                    view.heightAnchor.constraint(equalToConstant: iconTileSize)
+                ])
+                return view
+            }
+            let row = NSStackView(views: icons)
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = iconSpacing
+            row.edgeInsets = NSEdgeInsets(top: rowInset, left: rowInset, bottom: rowInset, right: rowInset)
+            content.addArrangedSubview(row)
+            let rowWidth = CGFloat(icons.count) * iconStride - iconSpacing + 2 * rowInset
+            row.widthAnchor.constraint(equalToConstant: rowWidth).isActive = true
         }
     }
 

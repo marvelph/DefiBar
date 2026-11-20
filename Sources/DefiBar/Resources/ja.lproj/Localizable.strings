@@ -9,6 +9,7 @@
 "menu.settings" = "Defi の設定…";
 "menu.quit" = "DefiBar を終了";
 "menu.launchAtLogin" = "ログイン時に起動";
+"menu.showInactiveWorkspaces" = "非アクティブなワークスペースを表示";
 "menu.showWorkspaceIcons" = "ワークスペースアイコンを表示";
 "menu.showWorkspaceNames" = "ワークスペース名を表示";
 "menu.showActiveWorkspaceWindows" = "アクティブなワークスペースのウインドウを表示";

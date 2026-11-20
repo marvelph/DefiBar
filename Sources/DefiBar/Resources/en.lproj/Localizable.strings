@@ -9,6 +9,7 @@
 "menu.settings" = "Defi Settings…";
 "menu.quit" = "Quit DefiBar";
 "menu.launchAtLogin" = "Launch at Login";
+"menu.showInactiveWorkspaces" = "Show Inactive Workspaces";
 "menu.showWorkspaceIcons" = "Show Workspace Icons";
 "menu.showWorkspaceNames" = "Show Workspace Names";
 "menu.showActiveWorkspaceWindows" = "Show Windows in the Active Workspace";

@@ -139,6 +139,7 @@ private final class StatusRow: NSStackView {
 final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // The bundle identifier and notification prefix differ across Defi versions.
     private static let defiIdentifiers = ["com.qeude.defi", "com.quentin.defi"]
+    private static let showsInactiveWorkspacesKey = "showsInactiveWorkspaces"
     private static let showsWorkspaceIconsKey = "showsWorkspaceIcons"
     private static let showsWorkspaceNamesKey = "showsWorkspaceNames"
     private static let showsActiveWorkspaceWindowsKey = "showsActiveWorkspaceWindows"
@@ -198,6 +199,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: [
+            Self.showsInactiveWorkspacesKey: true,
             Self.showsWorkspaceIconsKey: true,
             Self.showsWorkspaceNamesKey: true,
             Self.showsActiveWorkspaceWindowsKey: true,
@@ -313,9 +315,14 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         workspaceHUD.show(workspace, appIcon: icon(for:), on: screen)
     }
 
+    private var visibleWorkspaces: [WorkspaceState.Workspace] {
+        let workspaces = focusedMonitor?.workspaces ?? []
+        return showsInactiveWorkspaces ? workspaces : workspaces.filter(\.active)
+    }
+
     private var unavailableStatus: String? {
         guard state != nil else { return localized(connectionStatusKey) }
-        guard focusedMonitor?.workspaces.isEmpty == false else { return localized("status.noWorkspaces") }
+        guard !visibleWorkspaces.isEmpty else { return localized("status.noWorkspaces") }
         return nil
     }
 
@@ -346,7 +353,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let showsWorkspaceNames = self.showsWorkspaceNames
         let showsActiveWorkspaceWindows = self.showsActiveWorkspaceWindows
         let showsTrailingWorkspaceIcon = self.showsTrailingWorkspaceIcon
-        for workspace in monitor.workspaces.sorted(by: { $0.position < $1.position }) {
+        for workspace in visibleWorkspaces.sorted(by: { $0.position < $1.position }) {
             let button = WorkspaceButton(
                 workspace: workspace, display: monitor.display,
                 showsWorkspaceIcon: showsWorkspaceIcons, showsWorkspaceName: showsWorkspaceNames,
@@ -465,6 +472,15 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.orderFrontStandardAboutPanel(nil)
     }
 
+    private var showsInactiveWorkspaces: Bool {
+        UserDefaults.standard.bool(forKey: Self.showsInactiveWorkspacesKey)
+    }
+
+    @objc private func toggleInactiveWorkspaces() {
+        UserDefaults.standard.set(!showsInactiveWorkspaces, forKey: Self.showsInactiveWorkspacesKey)
+        render()
+    }
+
     private var showsWorkspaceIcons: Bool {
         UserDefaults.standard.bool(forKey: Self.showsWorkspaceIconsKey)
     }
@@ -527,6 +543,13 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .requiresApproval: login.state = .mixed
         default: login.state = .off
         }
+        let inactiveWorkspaces = menu.addItem(
+            withTitle: localized("menu.showInactiveWorkspaces"),
+            action: #selector(toggleInactiveWorkspaces),
+            keyEquivalent: ""
+        )
+        inactiveWorkspaces.target = self
+        inactiveWorkspaces.state = showsInactiveWorkspaces ? .on : .off
         let workspaceIcons = menu.addItem(
             withTitle: localized("menu.showWorkspaceIcons"),
             action: #selector(toggleWorkspaceIcons),

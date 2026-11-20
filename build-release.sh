@@ -8,6 +8,11 @@ if [ "$#" -ne 2 ] || ! printf '%s\n' "$1" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' 
     exit 1
 fi
 
+if [ -z "${DEFI_BAR_SIGNING_IDENTITY:-}" ]; then
+    echo "Set DEFI_BAR_SIGNING_IDENTITY to a Developer ID Application certificate name or SHA-1 hash." >&2
+    exit 1
+fi
+
 version=$1
 build_number=$2
 tag="v$version"

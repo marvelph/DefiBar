@@ -6,6 +6,7 @@ version=${DEFI_BAR_VERSION:-0.4.0}
 build_number=${DEFI_BAR_BUILD_NUMBER:-4}
 public_key=${SPARKLE_PUBLIC_ED_KEY:-}
 feed_url=${SPARKLE_FEED_URL:-https://github.com/marvelph/DefiBar/releases/latest/download/appcast.xml}
+signing_identity=${DEFI_BAR_SIGNING_IDENTITY:-}
 
 if [ -n "$public_key" ]; then
     if [ "${#public_key}" -ne 44 ] || ! printf '%s\n' "$public_key" | grep -Eq '^[A-Za-z0-9+/]{43}=$'; then
@@ -74,7 +75,20 @@ if [ -n "$public_key" ]; then
     plutil -insert SURequireSignedFeed -bool YES "$plist"
 fi
 
-codesign --force --sign - "$staged_app"
+if [ -n "$signing_identity" ]; then
+    sparkle_framework="$contents/Frameworks/Sparkle.framework"
+    sparkle_version="$sparkle_framework/Versions/Current"
+    codesign --force --sign "$signing_identity" --timestamp --options runtime \
+        --preserve-metadata=entitlements "$sparkle_version/XPCServices/Downloader.xpc"
+    codesign --force --sign "$signing_identity" --timestamp --options runtime \
+        "$sparkle_version/XPCServices/Installer.xpc" "$sparkle_version/Autoupdate" \
+        "$sparkle_version/Updater.app" "$sparkle_framework" "$staged_app"
+    codesign --verify --strict \
+        -R '=anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists' \
+        "$staged_app"
+else
+    codesign --force --sign - "$staged_app"
+fi
 codesign --verify --deep --strict "$staged_app"
 
 if [ -e "$app" ]; then

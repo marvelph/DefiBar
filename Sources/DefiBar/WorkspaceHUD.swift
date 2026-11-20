@@ -7,12 +7,18 @@ final class WorkspaceHUD {
     private var dismissTask: Task<Void, Never>?
 
     func show(
-        _ workspace: WorkspaceState.Workspace, appIcon: (String) -> NSImage, on screen: NSScreen
+        _ workspace: WorkspaceState.Workspace,
+        showsWorkspaceName: Bool,
+        showsTrailingWorkspaceIcon: Bool,
+        showsApplications: Bool,
+        appIcon: (String) -> NSImage,
+        on screen: NSScreen
     ) {
-        dismissTask?.cancel()
-        panel?.orderOut(nil)
+        dismiss()
 
-        let label = NSTextField(labelWithString: workspace.label)
+        let label = NSTextField(labelWithString: workspace.label(
+            showingName: showsWorkspaceName, showingTrailingIcon: showsTrailingWorkspaceIcon
+        ))
         label.font = .systemFont(ofSize: 24, weight: .semibold)
         label.alignment = .center
         label.lineBreakMode = .byTruncatingTail
@@ -46,19 +52,33 @@ final class WorkspaceHUD {
         content.spacing = 8
 
         let appIconSize: CGFloat = 64
-        let iconSpacing: CGFloat = 14
+        let iconInset: CGFloat = 6
+        let iconTileSize = appIconSize + 2 * iconInset
+        let iconSpacing: CGFloat = 2
         let rowInset: CGFloat = 4
-        let iconStride = appIconSize + iconSpacing
+        let iconStride = iconTileSize + iconSpacing
         let maximumRowWidth = maximumWidth - 2 * horizontalPadding
         let iconsPerRow = max(1, Int((maximumRowWidth - 2 * rowInset + iconSpacing) / iconStride))
-        for start in stride(from: 0, to: workspace.applications.count, by: iconsPerRow) {
-            let end = min(start + iconsPerRow, workspace.applications.count)
-            let icons = workspace.applications[start..<end].map { appID in
-                let view = NSImageView(image: appIcon(appID))
-                view.imageScaling = .scaleProportionallyUpOrDown
+        let applications = showsApplications ? workspace.applications : []
+        for start in stride(from: 0, to: applications.count, by: iconsPerRow) {
+            let end = min(start + iconsPerRow, applications.count)
+            let icons = applications[start..<end].map { appID in
+                let selected = appID == workspace.focusedApplication
+                let view = NSHostingView(rootView:
+                    Image(nsImage: appIcon(appID))
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: appIconSize, height: appIconSize)
+                        .padding(iconInset)
+                        .background(
+                            selected ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.clear),
+                            in: .rect(cornerRadius: 12)
+                        )
+                )
+                view.sizingOptions = []
                 NSLayoutConstraint.activate([
-                    view.widthAnchor.constraint(equalToConstant: appIconSize),
-                    view.heightAnchor.constraint(equalTo: view.widthAnchor)
+                    view.widthAnchor.constraint(equalToConstant: iconTileSize),
+                    view.heightAnchor.constraint(equalToConstant: iconTileSize)
                 ])
                 return view
             }
@@ -119,6 +139,13 @@ final class WorkspaceHUD {
             panel.orderOut(nil)
             self?.panel = nil
         }
+    }
+
+    func dismiss() {
+        dismissTask?.cancel()
+        dismissTask = nil
+        panel?.orderOut(nil)
+        panel = nil
     }
 }
 

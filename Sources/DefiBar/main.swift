@@ -51,11 +51,7 @@ struct WorkspaceState: Decodable, Sendable {
             return NSImage(systemSymbolName: icon, accessibilityDescription: nil)
         }
 
-        var label: String {
-            label(showingName: true)
-        }
-
-        func label(showingName: Bool, showingTrailingIcon: Bool = true) -> String {
+        func label(showingName: Bool, showingTrailingIcon: Bool) -> String {
             let numberedLabel = "#\(position)"
             if kind == "trailing" { return showingTrailingIcon ? "+" : numberedLabel }
             if !showingName || kind == "ordinary" { return numberedLabel }
@@ -144,6 +140,8 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let showsWorkspaceNamesKey = "showsWorkspaceNames"
     private static let showsActiveWorkspaceWindowsKey = "showsActiveWorkspaceWindows"
     private static let showsTrailingWorkspaceIconKey = "showsTrailingWorkspaceIcon"
+    private static let showsWorkspaceSwitchHUDKey = "showsWorkspaceSwitchHUD"
+    private static let showsApplicationsInWorkspaceHUDKey = "showsApplicationsInWorkspaceHUD"
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let row = StatusRow()
     private var state: WorkspaceState?
@@ -203,7 +201,9 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Self.showsWorkspaceIconsKey: true,
             Self.showsWorkspaceNamesKey: true,
             Self.showsActiveWorkspaceWindowsKey: true,
-            Self.showsTrailingWorkspaceIconKey: true
+            Self.showsTrailingWorkspaceIconKey: true,
+            Self.showsWorkspaceSwitchHUDKey: true,
+            Self.showsApplicationsInWorkspaceHUDKey: true
         ])
         _ = updaterController
         guard let button = item.button else { return }
@@ -304,7 +304,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         state = updated
         render()
 
-        guard let previousPosition, let monitor = focusedMonitor,
+        guard showsWorkspaceSwitchHUD, let previousPosition, let monitor = focusedMonitor,
               let workspace = monitor.workspaces.first(where: \.active),
               previousMonitor?.id != monitor.id || previousPosition != workspace.position else { return }
 
@@ -312,7 +312,14 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == monitor.id
         } ?? item.button?.window?.screen ?? NSScreen.main
         guard let screen else { return }
-        workspaceHUD.show(workspace, appIcon: icon(for:), on: screen)
+        workspaceHUD.show(
+            workspace,
+            showsWorkspaceName: showsWorkspaceNames,
+            showsTrailingWorkspaceIcon: showsTrailingWorkspaceIcon,
+            showsApplications: showsApplicationsInWorkspaceHUD,
+            appIcon: icon(for:),
+            on: screen
+        )
     }
 
     private var visibleWorkspaces: [WorkspaceState.Workspace] {
@@ -517,6 +524,24 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         render()
     }
 
+    private var showsWorkspaceSwitchHUD: Bool {
+        UserDefaults.standard.bool(forKey: Self.showsWorkspaceSwitchHUDKey)
+    }
+
+    @objc private func toggleWorkspaceSwitchHUD() {
+        let enabled = !showsWorkspaceSwitchHUD
+        UserDefaults.standard.set(enabled, forKey: Self.showsWorkspaceSwitchHUDKey)
+        if !enabled { workspaceHUD.dismiss() }
+    }
+
+    private var showsApplicationsInWorkspaceHUD: Bool {
+        UserDefaults.standard.bool(forKey: Self.showsApplicationsInWorkspaceHUDKey)
+    }
+
+    @objc private func toggleApplicationsInWorkspaceHUD() {
+        UserDefaults.standard.set(!showsApplicationsInWorkspaceHUD, forKey: Self.showsApplicationsInWorkspaceHUDKey)
+    }
+
     private func showMenu() {
         guard item.menu == nil, let button = item.button else { return }
         let menu = NSMenu()
@@ -578,6 +603,20 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         trailingWorkspaceIcon.target = self
         trailingWorkspaceIcon.state = showsTrailingWorkspaceIcon ? .on : .off
+        let workspaceSwitchHUD = menu.addItem(
+            withTitle: localized("menu.showWorkspaceInfoOnSwitch"),
+            action: #selector(toggleWorkspaceSwitchHUD),
+            keyEquivalent: ""
+        )
+        workspaceSwitchHUD.target = self
+        workspaceSwitchHUD.state = showsWorkspaceSwitchHUD ? .on : .off
+        let applicationsInWorkspaceHUD = menu.addItem(
+            withTitle: localized("menu.showApplicationsInWorkspaceInfo"),
+            action: #selector(toggleApplicationsInWorkspaceHUD),
+            keyEquivalent: ""
+        )
+        applicationsInWorkspaceHUD.target = self
+        applicationsInWorkspaceHUD.state = showsApplicationsInWorkspaceHUD ? .on : .off
         menu.addItem(.separator())
         if let status = unavailableStatus {
             let statusItem = menu.addItem(withTitle: status, action: nil, keyEquivalent: "")

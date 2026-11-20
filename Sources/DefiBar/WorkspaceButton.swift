@@ -74,9 +74,9 @@ private final class WindowIconSlot: NSView {
     }
 
     override func mouseExited(with event: NSEvent) {
+        // AppKit may still be displaying the tooltip while it dismisses it.
         titleRequest?.cancel()
         titleRequest = nil
-        updateTooltip(title: nil)
     }
 
     private func updateTooltip(title: String?) {

@@ -55,9 +55,10 @@ struct WorkspaceState: Decodable, Sendable {
             label(showingName: true)
         }
 
-        func label(showingName: Bool) -> String {
-            if kind == "trailing" { return "+" }
-            if !showingName || kind == "ordinary" { return "#\(position)" }
+        func label(showingName: Bool, showingTrailingIcon: Bool = true) -> String {
+            let numberedLabel = "#\(position)"
+            if kind == "trailing" { return showingTrailingIcon ? "+" : numberedLabel }
+            if !showingName || kind == "ordinary" { return numberedLabel }
             guard let name, !name.isEmpty else { return String(position) }
             return name
         }
@@ -141,6 +142,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let showsWorkspaceIconsKey = "showsWorkspaceIcons"
     private static let showsWorkspaceNamesKey = "showsWorkspaceNames"
     private static let showsActiveWorkspaceWindowsKey = "showsActiveWorkspaceWindows"
+    private static let showsTrailingWorkspaceIconKey = "showsTrailingWorkspaceIcon"
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let row = StatusRow()
     private var state: WorkspaceState?
@@ -198,7 +200,8 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         UserDefaults.standard.register(defaults: [
             Self.showsWorkspaceIconsKey: true,
             Self.showsWorkspaceNamesKey: true,
-            Self.showsActiveWorkspaceWindowsKey: true
+            Self.showsActiveWorkspaceWindowsKey: true,
+            Self.showsTrailingWorkspaceIconKey: true
         ])
         _ = updaterController
         guard let button = item.button else { return }
@@ -342,11 +345,13 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let showsWorkspaceIcons = self.showsWorkspaceIcons
         let showsWorkspaceNames = self.showsWorkspaceNames
         let showsActiveWorkspaceWindows = self.showsActiveWorkspaceWindows
+        let showsTrailingWorkspaceIcon = self.showsTrailingWorkspaceIcon
         for workspace in monitor.workspaces.sorted(by: { $0.position < $1.position }) {
             let button = WorkspaceButton(
                 workspace: workspace, display: monitor.display,
                 showsWorkspaceIcon: showsWorkspaceIcons, showsWorkspaceName: showsWorkspaceNames,
                 showsActiveWorkspaceWindows: showsActiveWorkspaceWindows,
+                showsTrailingWorkspaceIcon: showsTrailingWorkspaceIcon,
                 icon: icon(for:)
             )
             button.target = self
@@ -487,6 +492,15 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         render()
     }
 
+    private var showsTrailingWorkspaceIcon: Bool {
+        UserDefaults.standard.bool(forKey: Self.showsTrailingWorkspaceIconKey)
+    }
+
+    @objc private func toggleTrailingWorkspaceIcon() {
+        UserDefaults.standard.set(!showsTrailingWorkspaceIcon, forKey: Self.showsTrailingWorkspaceIconKey)
+        render()
+    }
+
     private func showMenu() {
         guard item.menu == nil, let button = item.button else { return }
         let menu = NSMenu()
@@ -534,6 +548,13 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         activeWorkspaceWindows.target = self
         activeWorkspaceWindows.state = showsActiveWorkspaceWindows ? .on : .off
+        let trailingWorkspaceIcon = menu.addItem(
+            withTitle: localized("menu.showTrailingWorkspaceIcon"),
+            action: #selector(toggleTrailingWorkspaceIcon),
+            keyEquivalent: ""
+        )
+        trailingWorkspaceIcon.target = self
+        trailingWorkspaceIcon.state = showsTrailingWorkspaceIcon ? .on : .off
         menu.addItem(.separator())
         if let status = unavailableStatus {
             let statusItem = menu.addItem(withTitle: status, action: nil, keyEquivalent: "")

@@ -12,5 +12,6 @@
 "menu.showWorkspaceIcons" = "ワークスペースアイコンを表示";
 "menu.showWorkspaceNames" = "ワークスペース名を表示";
 "menu.showActiveWorkspaceWindows" = "アクティブなワークスペースのウインドウを表示";
+"menu.showTrailingWorkspaceIcon" = "末尾の空ワークスペースを「+」で表示";
 "menu.about" = "DefiBarについて";
 "menu.checkForUpdates" = "アップデートを確認…";

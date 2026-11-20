@@ -135,6 +135,7 @@ final class WorkspaceButton: NSButton {
         showsWorkspaceIcon: Bool,
         showsWorkspaceName: Bool,
         showsActiveWorkspaceWindows: Bool,
+        showsTrailingWorkspaceIcon: Bool,
         icon: (String) -> NSImage
     ) {
         self.display = display
@@ -149,7 +150,9 @@ final class WorkspaceButton: NSButton {
         layer?.borderWidth = 1
         updateSurfaceColors()
 
-        let labelText = workspace.label(showingName: showsWorkspaceName)
+        let labelText = workspace.label(
+            showingName: showsWorkspaceName, showingTrailingIcon: showsTrailingWorkspaceIcon
+        )
         let label = NSTextField(labelWithString: labelText)
         let labelWeight: NSFont.Weight = isActive ? .semibold : .medium
         label.font = .systemFont(ofSize: 12, weight: labelWeight)
@@ -158,7 +161,7 @@ final class WorkspaceButton: NSButton {
         let labelSymbolConfiguration = NSImage.SymbolConfiguration(
             pointSize: 12, weight: labelWeight
         )
-        if workspace.kind == "trailing",
+        if showsTrailingWorkspaceIcon, workspace.kind == "trailing",
            let image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
             .withSymbolConfiguration(labelSymbolConfiguration) {
             let view = NSImageView(image: image)

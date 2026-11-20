@@ -12,5 +12,6 @@
 "menu.showWorkspaceIcons" = "Show Workspace Icons";
 "menu.showWorkspaceNames" = "Show Workspace Names";
 "menu.showActiveWorkspaceWindows" = "Show Windows in the Active Workspace";
+"menu.showTrailingWorkspaceIcon" = "Show the Trailing Workspace as +";
 "menu.about" = "About DefiBar";
 "menu.checkForUpdates" = "Check for Updates…";

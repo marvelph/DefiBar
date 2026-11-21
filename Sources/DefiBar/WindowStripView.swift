@@ -2,6 +2,42 @@ import AppKit
 
 private let iconSlotWidth: CGFloat = 18
 
+enum WindowStripScrollGesture {
+    case idle, waitingForHorizontalMovement, scrolling
+
+    mutating func shouldScroll(
+        phase: NSEvent.Phase, momentum: NSEvent.Phase, isOverStrip: Bool,
+        hasHorizontalMovement: Bool, hasPreciseDeltas: Bool
+    ) -> Bool {
+        if phase.contains(.cancelled) || momentum.contains(.cancelled) {
+            self = .idle
+            return false
+        }
+
+        if !momentum.isEmpty {
+            let shouldScroll = self == .scrolling && hasHorizontalMovement
+            if momentum.contains(.ended) { self = .idle }
+            return shouldScroll
+        }
+
+        if phase.isEmpty {
+            let shouldScroll = isOverStrip && hasHorizontalMovement
+            self = shouldScroll && hasPreciseDeltas ? .scrolling : .idle
+            return shouldScroll
+        }
+
+        if phase.contains(.mayBegin) || phase.contains(.began) {
+            self = isOverStrip ? .waitingForHorizontalMovement : .idle
+        }
+        if self != .idle && hasHorizontalMovement {
+            self = .scrolling
+            return true
+        }
+        if phase.contains(.ended), self == .waitingForHorizontalMovement { self = .idle }
+        return false
+    }
+}
+
 @MainActor
 private final class WindowIconSlot: NSView {
     let windowID: UInt64
@@ -98,59 +134,135 @@ private final class WindowIconSlot: NSView {
 }
 
 @MainActor
-final class WindowStripView: NSStackView {
+final class WindowStripView: NSView {
     private static let markers = Dictionary(uniqueKeysWithValues: WindowStripLayout.Marker.allCases.map {
         ($0, WindowMarker($0))
     })
     private static let markerWidths = markers.mapValues(\.width)
 
-    let firstWindowID: UInt64?
     let stripWidth: CGFloat
-    private var windowSlots: [WindowIconSlot] = []
-    private var continuationMarkers: [NSView] = []
+    var canScroll: Bool { stripLayout.maximumOffset(for: stripWidth) > 0 }
+    var position: WindowStripPosition {
+        WindowStripPosition(offset: offset, focusedWindowID: stripLayout.focusedWindowID)
+    }
 
-    init(workspace: WorkspaceState.Workspace, maximumWidth: CGFloat, firstWindowID: UInt64?, icon: (String) -> NSImage) {
+    private let stripLayout: WindowStripLayout
+    private let icon: (String) -> NSImage
+    private let clip = NSClipView()
+    private let document: NSView
+    private let leftMarker: NSView
+    private let rightMarker: NSView
+    private var offset: CGFloat
+    private var visibleViews: [Int: NSView] = [:]
+
+    init(
+        workspace: WorkspaceState.Workspace, maximumWidth: CGFloat, position: WindowStripPosition?,
+        icon: @escaping (String) -> NSImage
+    ) {
         let layout = WindowStripLayout(
             workspace: workspace, slotWidth: iconSlotWidth, markerWidths: Self.markerWidths
         )
-        let visibleStrip = layout.visibleStrip(maximumWidth: maximumWidth, firstWindowID: firstWindowID)
-        self.firstWindowID = visibleStrip.firstWindowID
-        stripWidth = visibleStrip.width
-        super.init(frame: .zero)
+        stripLayout = layout
+        stripWidth = min(maximumWidth, layout.contentWidth)
+        self.icon = icon
+        offset = layout.restoredOffset(for: stripWidth, position: position)
+        document = NSView(frame: NSRect(x: 0, y: 0, width: layout.contentWidth, height: workspaceButtonHeight))
+        leftMarker = Self.markers[.continuationLeft]!.makeView()
+        rightMarker = Self.markers[.continuationRight]!.makeView()
+        super.init(frame: NSRect(x: 0, y: 0, width: stripWidth, height: workspaceButtonHeight))
 
-        orientation = .horizontal
-        alignment = .centerY
-        spacing = 0
-        for item in visibleStrip.items {
-            switch item {
-            case .marker(let marker):
-                guard let style = Self.markers[marker] else { continue }
-                let view = style.makeView()
-                if marker == .continuationLeft || marker == .continuationRight {
-                    continuationMarkers.append(view)
-                }
-                addArrangedSubview(view)
-            case .window(let window):
-                let slot = WindowIconSlot(window: window, image: icon(window.appID))
-                windowSlots.append(slot)
-                addArrangedSubview(slot)
-            }
-        }
-        widthAnchor.constraint(equalToConstant: stripWidth).isActive = true
+        clip.drawsBackground = false
+        clip.clipsToBounds = true
+        clip.documentView = document
+        addSubview(clip)
+        addSubview(leftMarker)
+        addSubview(rightMarker)
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: stripWidth),
+            heightAnchor.constraint(equalToConstant: workspaceButtonHeight)
+        ])
+        updateViewport()
     }
 
     required init?(coder: NSCoder) { nil }
 
+    func contains(_ pointInWindow: NSPoint) -> Bool {
+        bounds.contains(convert(pointInWindow, from: nil))
+    }
+
+    func scrollHorizontally(by delta: CGFloat) -> Bool {
+        guard canScroll else { return false }
+        let newOffset = stripLayout.clampedOffset(offset + delta, viewportWidth: stripWidth)
+        if newOffset != offset {
+            offset = newOffset
+            updateViewport()
+        }
+        return true
+    }
+
     func windowID(at pointInWindow: NSPoint) -> UInt64? {
-        windowSlots.first { $0.bounds.contains($0.convert(pointInWindow, from: nil)) }?.windowID
+        guard clip.frame.contains(convert(pointInWindow, from: nil)) else { return nil }
+        return visibleViews.values.compactMap { $0 as? WindowIconSlot }
+            .first { $0.bounds.contains($0.convert(pointInWindow, from: nil)) }?.windowID
     }
 
     func containsContinuationMarker(at pointInWindow: NSPoint) -> Bool {
-        continuationMarkers.contains { $0.bounds.contains($0.convert(pointInWindow, from: nil)) }
+        let point = convert(pointInWindow, from: nil)
+        return bounds.contains(point) && !clip.frame.contains(point)
     }
 
     func showWindowClickFeedback(id: UInt64, startedAt: CFTimeInterval) {
-        windowSlots.first { $0.windowID == id }?.showClickFeedback(startedAt: startedAt)
+        visibleViews.values.compactMap { $0 as? WindowIconSlot }
+            .first { $0.windowID == id }?.showClickFeedback(startedAt: startedAt)
+    }
+
+    private func updateViewport() {
+        let edges = stripLayout.edges(at: offset, viewportWidth: stripWidth)
+        clip.frame = NSRect(x: edges.left, y: 0, width: stripWidth - edges.left - edges.right,
+                            height: workspaceButtonHeight)
+        // Compensate for the marker's inset so the document moves only by the scroll offset.
+        clip.scroll(to: NSPoint(x: offset + edges.left, y: 0))
+        placeMarker(leftMarker, x: 0, width: edges.left)
+        placeMarker(rightMarker, x: stripWidth - edges.right, width: edges.right)
+        updateVisibleViews()
+    }
+
+    private func placeMarker(_ marker: NSView, x: CGFloat, width: CGFloat) {
+        marker.isHidden = width == 0
+        if width > 0 {
+            let height = marker.intrinsicContentSize.height
+            marker.frame = NSRect(x: x, y: (workspaceButtonHeight - height) / 2, width: width, height: height)
+        }
+    }
+
+    private func updateVisibleViews() {
+        let visibleBounds = clip.bounds
+        let elements = stripLayout.elements
+        let visible = elements.indices.filter {
+            elements[$0].x < visibleBounds.maxX && elements[$0].x + elements[$0].width > visibleBounds.minX
+        }
+        let visibleIndices = Set(visible)
+        for index in visibleViews.keys.filter({ !visibleIndices.contains($0) }) {
+            visibleViews.removeValue(forKey: index)?.removeFromSuperview()
+        }
+        for index in visible where visibleViews[index] == nil {
+            let element = elements[index]
+            let view: NSView
+            let height: CGFloat
+            switch element.item {
+            case .window(let window):
+                view = WindowIconSlot(window: window, image: icon(window.appID))
+                height = workspaceButtonHeight
+            case .marker(let marker):
+                guard let marker = Self.markers[marker] else { continue }
+                view = marker.makeView()
+                height = view.intrinsicContentSize.height
+            }
+            view.frame = NSRect(x: element.x, y: (workspaceButtonHeight - height) / 2,
+                                width: element.width, height: height)
+            document.addSubview(view)
+            visibleViews[index] = view
+        }
     }
 }
 
@@ -176,9 +288,7 @@ private struct WindowMarker {
         if let image {
             width = ceil(image.size.width)
         } else {
-            let label = NSTextField(labelWithString: text)
-            label.font = font
-            width = ceil(label.intrinsicContentSize.width)
+            width = ceil((text as NSString).size(withAttributes: [.font: font]).width)
         }
     }
 
@@ -189,14 +299,36 @@ private struct WindowMarker {
             icon.contentTintColor = .labelColor
             view = icon
         } else {
-            let label = NSTextField(labelWithString: text)
-            label.font = font
-            label.alignment = .center
-            view = label
+            view = WindowMarkerText(text: text, font: font)
         }
         view.alphaValue = 0.65
         view.setAccessibilityElement(false)
         view.widthAnchor.constraint(equalToConstant: width).isActive = true
         return view
+    }
+}
+
+@MainActor
+private final class WindowMarkerText: NSView {
+    private let text: NSString
+    private let font: NSFont
+    private let textSize: NSSize
+
+    init(text: String, font: NSFont) {
+        self.text = text as NSString
+        self.font = font
+        textSize = (text as NSString).size(withAttributes: [.font: font])
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: ceil(textSize.width), height: ceil(textSize.height))
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let origin = NSPoint(x: bounds.midX - textSize.width / 2, y: bounds.midY - textSize.height / 2)
+        text.draw(at: origin, withAttributes: [.font: font, .foregroundColor: NSColor.labelColor])
     }
 }

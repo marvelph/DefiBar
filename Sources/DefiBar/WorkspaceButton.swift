@@ -33,8 +33,8 @@ final class WorkspaceButton: NSButton {
         hidesLabelWithIcon: Bool,
         showsActiveWorkspaceWindows: Bool,
         windowStripMaximumWidth: CGFloat,
-        firstWindowID: UInt64?,
-        icon: (String) -> NSImage
+        windowStripPosition: WindowStripPosition?,
+        icon: @escaping (String) -> NSImage
     ) {
         self.display = display
         position = workspace.position
@@ -78,7 +78,7 @@ final class WorkspaceButton: NSButton {
         let labelSpacing: CGFloat = 2
         if isActive, showsActiveWorkspaceWindows, !workspace.windows.isEmpty {
             windowStrip = WindowStripView(
-                workspace: workspace, maximumWidth: windowStripMaximumWidth, firstWindowID: firstWindowID, icon: icon
+                workspace: workspace, maximumWidth: windowStripMaximumWidth, position: windowStripPosition, icon: icon
             )
         }
 

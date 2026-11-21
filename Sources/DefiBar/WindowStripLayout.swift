@@ -28,6 +28,11 @@ struct WindowStripLayout {
         let stack: Int?
     }
 
+    private struct IndexedWindow {
+        let window: WorkspaceState.Window
+        let firstItem: Int
+    }
+
     private struct FittedRange {
         let items: Range<Int>
         let windows: Range<Int>
@@ -35,8 +40,7 @@ struct WindowStripLayout {
     }
 
     private let items: [Item]
-    private let windows: [WorkspaceState.Window]
-    private let windowPositions: [Int]
+    private let windows: [IndexedWindow]
     private let slotWidth: CGFloat
     private let markerWidths: [Marker: CGFloat]
 
@@ -51,13 +55,7 @@ struct WindowStripLayout {
         for window in workspace.windows where window.floating {
             entries.append(Entry(window: window, stack: nil))
         }
-        let items = Self.makeItems(from: entries)
-        self.items = items
-        windows = entries.map(\.window)
-        windowPositions = items.indices.filter {
-            if case .window = items[$0] { return true }
-            return false
-        }
+        (items, windows) = Self.makeItems(from: entries)
         self.slotWidth = slotWidth
         self.markerWidths = markerWidths
     }
@@ -72,10 +70,10 @@ struct WindowStripLayout {
         }
 
         let availableWidth = maximumWidth - 2 * arrowWidth
-        let focusedIndex = windows.firstIndex(where: \.selected)
-        let focusedWindowID = focusedIndex.map { windows[$0].id }
+        let focusedIndex = windows.firstIndex(where: \.window.selected)
+        let focusedWindowID = focusedIndex.map { windows[$0].window.id }
         let range: FittedRange
-        if let viewport, let start = windows.firstIndex(where: { $0.id == viewport.firstWindowID }) {
+        if let viewport, let start = windows.firstIndex(where: { $0.window.id == viewport.firstWindowID }) {
             let current = fittingRange(startingAt: start, maximumWidth: availableWidth)
             if viewport.focusedWindowID != focusedWindowID, let focusedIndex, !current.windows.contains(focusedIndex) {
                 range = centeredRange(on: focusedIndex, maximumWidth: availableWidth)
@@ -92,16 +90,15 @@ struct WindowStripLayout {
         return VisibleStrip(
             items: Array(items[range.items]),
             width: range.width,
-            viewport: WindowStripViewport(firstWindowID: windows[start].id, focusedWindowID: focusedWindowID),
-            previousWindowID: start > 0 ? windows[start - 1].id : nil,
+            viewport: WindowStripViewport(firstWindowID: windows[start].window.id, focusedWindowID: focusedWindowID),
+            previousWindowID: start > 0 ? windows[start - 1].window.id : nil,
             nextWindowID: range.items.upperBound < items.count && start + 1 < windows.count
-                ? windows[start + 1].id : nil
+                ? windows[start + 1].window.id : nil
         )
     }
 
     private func fittingRange(startingAt start: Int, maximumWidth: CGFloat) -> FittedRange {
-        // A scroll step drops one window and the items before it. Markers after it can stay visible.
-        let firstItem = start == 0 ? 0 : windowPositions[start - 1] + 1
+        let firstItem = windows[start].firstItem
         var endItem = firstItem
         var endWindow = start
         var usedWidth: CGFloat = 0
@@ -131,21 +128,26 @@ struct WindowStripLayout {
         return best
     }
 
-    private static func makeItems(from entries: [Entry]) -> [Item] {
+    private static func makeItems(from entries: [Entry]) -> ([Item], [IndexedWindow]) {
         var items: [Item] = []
+        var windows: [IndexedWindow] = []
+        var firstItem = 0
         for index in entries.indices {
             let entry = entries[index]
             let previous = index > 0 ? entries[index - 1] : nil
             let next = index + 1 < entries.count ? entries[index + 1] : nil
+            windows.append(IndexedWindow(window: entry.window, firstItem: firstItem))
             if entry.window.nativeFullscreen == true, previous?.window.nativeFullscreen != true {
                 items.append(.marker(.fullscreen))
             }
             if entry.window.floating, previous?.window.floating != true { items.append(.marker(.floating)) }
             if let stack = entry.stack, previous?.stack != stack { items.append(.marker(.stackStart)) }
             items.append(.window(entry.window))
+            // Scrolling past an icon can leave the markers after it visible.
+            firstItem = items.count
             if let stack = entry.stack, next?.stack != stack { items.append(.marker(.stackEnd)) }
         }
-        return items
+        return (items, windows)
     }
 
     private func width(of item: Item) -> CGFloat {

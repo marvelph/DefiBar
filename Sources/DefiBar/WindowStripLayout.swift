@@ -96,8 +96,8 @@ struct WindowStripLayout {
     }
 
     func edges(at offset: CGFloat, viewportWidth: CGFloat) -> Edges {
-        Edges(left: offset > 0 ? leftMarkerWidth : 0,
-              right: offset < maximumOffset(for: viewportWidth) ? rightMarkerWidth : 0)
+        let remaining = maximumOffset(for: viewportWidth) - offset
+        return Edges(left: min(leftMarkerWidth, offset), right: min(rightMarkerWidth, remaining))
     }
 
     func maximumOffset(for viewportWidth: CGFloat) -> CGFloat {

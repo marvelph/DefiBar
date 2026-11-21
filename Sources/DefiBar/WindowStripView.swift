@@ -179,6 +179,7 @@ final class WindowStripView: NSView {
         rightMarker = Self.markers[.continuationRight]!.makeView()
         super.init(frame: NSRect(x: 0, y: 0, width: stripWidth, height: workspaceButtonHeight))
 
+        clipsToBounds = true
         clip.drawsBackground = false
         clip.clipsToBounds = true
         clip.documentView = document
@@ -259,17 +260,19 @@ final class WindowStripView: NSView {
                             height: workspaceButtonHeight)
         // Compensate for the marker's inset so the document moves only by the scroll offset.
         clip.scroll(to: NSPoint(x: offset + edges.left, y: 0))
-        placeMarker(leftMarker, x: 0, width: edges.left)
-        placeMarker(rightMarker, x: stripWidth - edges.right, width: edges.right)
+        placeMarker(leftMarker, inset: edges.left, onLeft: true)
+        placeMarker(rightMarker, inset: edges.right, onLeft: false)
         updateVisibleViews()
     }
 
-    private func placeMarker(_ marker: NSView, x: CGFloat, width: CGFloat) {
-        marker.isHidden = width == 0
-        if width > 0 {
-            let height = marker.intrinsicContentSize.height
-            marker.frame = NSRect(x: x, y: (workspaceButtonHeight - height) / 2, width: width, height: height)
-        }
+    private func placeMarker(_ marker: NSView, inset: CGFloat, onLeft: Bool) {
+        marker.isHidden = inset == 0
+        guard inset > 0 else { return }
+
+        let size = marker.intrinsicContentSize
+        let width = ceil(size.width)
+        let x = onLeft ? inset - width : stripWidth - inset
+        marker.frame = NSRect(x: x, y: (workspaceButtonHeight - size.height) / 2, width: width, height: size.height)
     }
 
     private func updateVisibleViews() {

@@ -12,6 +12,7 @@
 "menu.showInactiveWorkspaces" = "非アクティブなワークスペースを表示";
 "menu.showWorkspaceIcons" = "ワークスペースアイコンを表示";
 "menu.showWorkspaceNames" = "ワークスペース名を表示";
+"menu.hideWorkspaceLabelsWithIcons" = "アイコン表示時はワークスペース名・番号を省略";
 "menu.showWorkspaceNumberSign" = "ワークスペース番号に「#」をつける";
 "menu.showTrailingWorkspaceIcon" = "末尾の空ワークスペースを「+」で表示";
 "menu.showActiveWorkspaceWindows" = "アクティブなワークスペースのウインドウを表示";

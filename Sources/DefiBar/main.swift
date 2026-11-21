@@ -137,21 +137,23 @@ private final class StatusRow: NSStackView {
 }
 
 private enum DisplaySetting: String, CaseIterable {
-    // Raw values are the keys used by existing installations. Case order is menu order.
-    case inactiveWorkspaces = "showsInactiveWorkspaces"
-    case workspaceIcons = "showsWorkspaceIcons"
+    // Raw values are UserDefaults keys and stay stable across releases. Case order controls the menu.
+    case inactiveWorkspaces = "showsInactiveWorkspacesInMenuBar"
+    case workspaceIcons = "showsWorkspaceIconsInMenuBar"
     case workspaceNames = "showsWorkspaceNames"
+    case hideWorkspaceLabelsWithIcons = "hidesWorkspaceLabelsWithIconsInMenuBar"
     case workspaceNumberSign = "showsWorkspaceNumberSign"
-    case trailingWorkspaceIcon = "showsTrailingWorkspaceIcon"
-    case activeWorkspaceWindows = "showsActiveWorkspaceWindows"
-    case workspaceSwitchHUD = "showsWorkspaceSwitchHUD"
-    case applicationsInWorkspaceHUD = "showsApplicationsInWorkspaceHUD"
+    case trailingWorkspaceIcon = "showsTrailingWorkspaceAsPlus"
+    case activeWorkspaceWindows = "showsActiveWorkspaceWindowIconsInMenuBar"
+    case workspaceSwitchHUD = "showsWorkspaceInfoOnSwitch"
+    case applicationsInWorkspaceHUD = "showsAppIconsInWorkspaceInfo"
 
     var menuTitleKey: String {
         switch self {
         case .inactiveWorkspaces: return "menu.showInactiveWorkspaces"
         case .workspaceIcons: return "menu.showWorkspaceIcons"
         case .workspaceNames: return "menu.showWorkspaceNames"
+        case .hideWorkspaceLabelsWithIcons: return "menu.hideWorkspaceLabelsWithIcons"
         case .workspaceNumberSign: return "menu.showWorkspaceNumberSign"
         case .trailingWorkspaceIcon: return "menu.showTrailingWorkspaceIcon"
         case .activeWorkspaceWindows: return "menu.showActiveWorkspaceWindows"
@@ -160,6 +162,7 @@ private enum DisplaySetting: String, CaseIterable {
         }
     }
 
+    var defaultValue: Bool { self != .hideWorkspaceLabelsWithIcons }
     var isEnabled: Bool { UserDefaults.standard.bool(forKey: rawValue) }
 }
 
@@ -222,7 +225,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: Dictionary(
-            uniqueKeysWithValues: DisplaySetting.allCases.map { ($0.rawValue, true) }
+            uniqueKeysWithValues: DisplaySetting.allCases.map { ($0.rawValue, $0.defaultValue) }
         ))
         _ = updaterController
         guard let button = item.button else { return }
@@ -384,11 +387,13 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let monitor = focusedMonitor else { return }
         let labelStyle = workspaceLabelStyle
         let showsWorkspaceIcons = DisplaySetting.workspaceIcons.isEnabled
+        let hidesLabelsWithIcons = DisplaySetting.hideWorkspaceLabelsWithIcons.isEnabled
         let showsActiveWorkspaceWindows = DisplaySetting.activeWorkspaceWindows.isEnabled
         for workspace in visibleWorkspaces.sorted(by: { $0.position < $1.position }) {
             let button = WorkspaceButton(
                 workspace: workspace, display: monitor.display,
                 labelStyle: labelStyle, showsWorkspaceIcon: showsWorkspaceIcons,
+                hidesLabelWithIcon: hidesLabelsWithIcons,
                 showsActiveWorkspaceWindows: showsActiveWorkspaceWindows,
                 icon: icon(for:)
             )

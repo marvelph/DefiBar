@@ -134,6 +134,7 @@ final class WorkspaceButton: NSButton {
         display: Int,
         labelStyle: WorkspaceState.Workspace.LabelStyle,
         showsWorkspaceIcon: Bool,
+        hidesLabelWithIcon: Bool,
         showsActiveWorkspaceWindows: Bool,
         icon: (String) -> NSImage
     ) {
@@ -150,16 +151,19 @@ final class WorkspaceButton: NSButton {
         updateSurfaceColors()
 
         let labelText = workspace.label(style: labelStyle)
-        let label = NSTextField(labelWithString: labelText)
+        let workspaceIcon = showsWorkspaceIcon ? workspace.symbolImage : nil
+        let hidesLabel = hidesLabelWithIcon && workspaceIcon != nil
         let labelWeight: NSFont.Weight = isActive ? .semibold : .medium
-        label.font = .systemFont(ofSize: 12, weight: labelWeight)
-        let labelView: NSView
+        let labelView: NSView?
         let labelWidth: CGFloat
         let labelSymbolConfiguration = NSImage.SymbolConfiguration(
             pointSize: 12, weight: labelWeight
         )
-        if labelStyle.showsTrailingPlus, workspace.kind == "trailing",
-           let image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
+        if hidesLabel {
+            labelWidth = 0
+            labelView = nil
+        } else if labelStyle.showsTrailingPlus, workspace.kind == "trailing",
+                  let image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
             .withSymbolConfiguration(labelSymbolConfiguration) {
             let view = NSImageView(image: image)
             view.contentTintColor = .labelColor
@@ -167,6 +171,8 @@ final class WorkspaceButton: NSButton {
             view.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
             labelView = view
         } else {
+            let label = NSTextField(labelWithString: labelText)
+            label.font = .systemFont(ofSize: 12, weight: labelWeight)
             labelView = label
             labelWidth = ceil(label.intrinsicContentSize.width)
         }
@@ -175,15 +181,14 @@ final class WorkspaceButton: NSButton {
         let showsWindows = isActive && showsActiveWorkspaceWindows
         let (iconViews, iconWidth) = showsWindows ? makeIconViews(for: workspace, icon: icon) : ([], 0)
 
-        let content = NSStackView(views: [labelView] + iconViews)
+        let content = NSStackView(views: (labelView.map { [$0] } ?? []) + iconViews)
         content.orientation = .horizontal
         content.alignment = .centerY
         content.spacing = 0
-        content.setCustomSpacing(labelSpacing, after: labelView)
+        if let labelView { content.setCustomSpacing(labelSpacing, after: labelView) }
         var workspaceLabelWidth = labelWidth
-        if showsWorkspaceIcon, let image = workspace.symbolImage {
+        if let image = workspaceIcon {
             let view = NSImageView(image: image)
-            let spacing: CGFloat = 4
             view.imageScaling = .scaleProportionallyUpOrDown
             view.contentTintColor = .labelColor
             NSLayoutConstraint.activate([
@@ -191,8 +196,15 @@ final class WorkspaceButton: NSButton {
                 view.heightAnchor.constraint(equalToConstant: iconSize)
             ])
             content.insertArrangedSubview(view, at: 0)
-            content.setCustomSpacing(spacing, after: view)
-            workspaceLabelWidth += iconSize + spacing
+            workspaceLabelWidth += iconSize
+            if hidesLabel {
+                content.setCustomSpacing(labelSpacing, after: view)
+                if !iconViews.isEmpty { view.toolTip = labelText }
+            } else {
+                let iconSpacing: CGFloat = 4
+                content.setCustomSpacing(iconSpacing, after: view)
+                workspaceLabelWidth += iconSpacing
+            }
         }
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)

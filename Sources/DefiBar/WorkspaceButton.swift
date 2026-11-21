@@ -32,6 +32,7 @@ final class WorkspaceButton: NSButton {
         showsWorkspaceIcon: Bool,
         hidesLabelWithIcon: Bool,
         showsActiveWorkspaceWindows: Bool,
+        windowStripMaximumWidth: CGFloat,
         firstWindowID: UInt64?,
         icon: (String) -> NSImage
     ) {
@@ -76,7 +77,9 @@ final class WorkspaceButton: NSButton {
         let horizontalInset: CGFloat = 6
         let labelSpacing: CGFloat = 2
         if isActive, showsActiveWorkspaceWindows, !workspace.windows.isEmpty {
-            windowStrip = WindowStripView(workspace: workspace, firstWindowID: firstWindowID, icon: icon)
+            windowStrip = WindowStripView(
+                workspace: workspace, maximumWidth: windowStripMaximumWidth, firstWindowID: firstWindowID, icon: icon
+            )
         }
 
         let content = NSStackView(views: [labelView, windowStrip].compactMap { $0 })

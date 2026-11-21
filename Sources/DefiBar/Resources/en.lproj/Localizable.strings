@@ -16,6 +16,8 @@
 "menu.showWorkspaceNumberSign" = "Prefix Workspace Numbers with “#”";
 "menu.showTrailingWorkspaceIcon" = "Show the Trailing Empty Workspace as “+”";
 "menu.showActiveWorkspaceWindows" = "Show Windows in the Active Workspace";
+"menu.windowStripMaximumWidth" = "Maximum Window Strip Width";
+"menu.windowStripWidthValue" = "%ld pt";
 "menu.showWorkspaceInfoOnSwitch" = "Show Workspace Info When Switching";
 "menu.showApplicationsInWorkspaceInfo" = "Show Applications in Workspace Info";
 "menu.about" = "About DefiBar";

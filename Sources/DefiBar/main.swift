@@ -409,6 +409,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let showsWorkspaceIcons = DisplaySetting.workspaceIcons.isEnabled
         let hidesLabelsWithIcons = DisplaySetting.hideWorkspaceLabelsWithIcons.isEnabled
         let showsActiveWorkspaceWindows = DisplaySetting.activeWorkspaceWindows.isEnabled
+        let windowStripMaximumWidth = CGFloat(WindowStripWidth.value)
         let workspaces = visibleWorkspaces.sorted(by: { $0.position < $1.position })
         let stripWorkspace = showsActiveWorkspaceWindows ? workspaces.first(where: \.active).map {
             WindowStripWorkspace(monitorID: monitor.id, workspace: $0)
@@ -422,6 +423,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 labelStyle: labelStyle, showsWorkspaceIcon: showsWorkspaceIcons,
                 hidesLabelWithIcon: hidesLabelsWithIcons,
                 showsActiveWorkspaceWindows: showsActiveWorkspaceWindows,
+                windowStripMaximumWidth: windowStripMaximumWidth,
                 firstWindowID: workspace.active ? windowStripState?.firstWindowID : nil,
                 icon: icon(for:)
             )
@@ -592,6 +594,21 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menuItem.target = self
             menuItem.representedObject = setting.rawValue
             menuItem.state = setting.isEnabled ? .on : .off
+            if setting == .activeWorkspaceWindows {
+                let title = localized("menu.windowStripMaximumWidth")
+                let widthView = WindowStripWidthMenuView(title: title, width: WindowStripWidth.value) { [weak self] width in
+                    guard let self, width != WindowStripWidth.value else { return }
+                    WindowStripWidth.value = width
+                    self.windowStripState?.firstWindowID = nil
+                    self.render()
+                }
+                let widthItem = NSMenuItem(
+                    title: title, action: #selector(WindowStripWidthMenuView.focusSlider), keyEquivalent: ""
+                )
+                widthItem.target = widthView
+                widthItem.view = widthView
+                menu.addItem(widthItem)
+            }
         }
         menu.addItem(.separator())
         if let status = unavailableStatus {

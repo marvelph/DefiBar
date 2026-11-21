@@ -99,7 +99,6 @@ private final class WindowIconSlot: NSView {
 
 @MainActor
 final class WindowStripView: NSStackView {
-    private static let maximumWidth: CGFloat = 144
     private static let markers = Dictionary(uniqueKeysWithValues: WindowStripLayout.Marker.allCases.map {
         ($0, WindowMarker($0))
     })
@@ -110,11 +109,11 @@ final class WindowStripView: NSStackView {
     private var windowSlots: [WindowIconSlot] = []
     private var continuationMarkers: [NSView] = []
 
-    init(workspace: WorkspaceState.Workspace, firstWindowID: UInt64?, icon: (String) -> NSImage) {
+    init(workspace: WorkspaceState.Workspace, maximumWidth: CGFloat, firstWindowID: UInt64?, icon: (String) -> NSImage) {
         let layout = WindowStripLayout(
             workspace: workspace, slotWidth: iconSlotWidth, markerWidths: Self.markerWidths
         )
-        let visibleStrip = layout.visibleStrip(maximumWidth: Self.maximumWidth, firstWindowID: firstWindowID)
+        let visibleStrip = layout.visibleStrip(maximumWidth: maximumWidth, firstWindowID: firstWindowID)
         self.firstWindowID = visibleStrip.firstWindowID
         stripWidth = visibleStrip.width
         super.init(frame: .zero)

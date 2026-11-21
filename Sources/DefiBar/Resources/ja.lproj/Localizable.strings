@@ -16,6 +16,8 @@
 "menu.showWorkspaceNumberSign" = "ワークスペース番号に「#」をつける";
 "menu.showTrailingWorkspaceIcon" = "末尾の空ワークスペースを「+」で表示";
 "menu.showActiveWorkspaceWindows" = "アクティブなワークスペースのウインドウを表示";
+"menu.windowStripMaximumWidth" = "ウインドウ列の最大幅";
+"menu.windowStripWidthValue" = "%ld pt";
 "menu.showWorkspaceInfoOnSwitch" = "切り替え時にワークスペース情報を表示";
 "menu.showApplicationsInWorkspaceInfo" = "ワークスペース情報にアプリケーションを表示";
 "menu.about" = "DefiBar について";

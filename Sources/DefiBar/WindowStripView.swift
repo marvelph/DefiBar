@@ -308,9 +308,10 @@ final class WindowStripView: NSView {
 
 @MainActor
 private struct WindowMarker {
+    private static let pointSize: CGFloat = 13
+    private static let font = NSFont.systemFont(ofSize: pointSize, weight: .medium)
     private let text: String
     private let image: NSImage?
-    private let font = NSFont.systemFont(ofSize: 12, weight: .medium)
     let width: CGFloat
 
     init(_ marker: WindowStripLayout.Marker) {
@@ -324,11 +325,11 @@ private struct WindowMarker {
         case .continuationRight: (symbol, text) = ("chevron.right", "›")
         }
         image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }?
-            .withSymbolConfiguration(.init(pointSize: 12, weight: .medium))
+            .withSymbolConfiguration(.init(pointSize: Self.pointSize, weight: .medium))
         if let image {
             width = ceil(image.size.width)
         } else {
-            width = ceil((text as NSString).size(withAttributes: [.font: font]).width)
+            width = ceil((text as NSString).size(withAttributes: [.font: Self.font]).width)
         }
     }
 
@@ -339,7 +340,7 @@ private struct WindowMarker {
             icon.contentTintColor = .labelColor
             view = icon
         } else {
-            view = WindowMarkerText(text: text, font: font)
+            view = WindowMarkerText(text: text, font: Self.font)
         }
         view.alphaValue = 0.65
         view.setAccessibilityElement(false)

@@ -140,8 +140,8 @@ private enum DisplaySetting: String, CaseIterable {
     // Raw values are UserDefaults keys and stay stable across releases. Case order controls the menu.
     case inactiveWorkspaces = "showsInactiveWorkspacesInMenuBar"
     case workspaceIcons = "showsWorkspaceIconsInMenuBar"
-    case workspaceNames = "showsWorkspaceNames"
     case hideWorkspaceLabelsWithIcons = "hidesWorkspaceLabelsWithIconsInMenuBar"
+    case workspaceNames = "showsWorkspaceNames"
     case workspaceNumberSign = "showsWorkspaceNumberSign"
     case trailingWorkspaceIcon = "showsTrailingWorkspaceAsPlus"
     case activeWorkspaceWindows = "showsActiveWorkspaceWindowIconsInMenuBar"
@@ -152,8 +152,8 @@ private enum DisplaySetting: String, CaseIterable {
         switch self {
         case .inactiveWorkspaces: return "menu.showInactiveWorkspaces"
         case .workspaceIcons: return "menu.showWorkspaceIcons"
-        case .workspaceNames: return "menu.showWorkspaceNames"
         case .hideWorkspaceLabelsWithIcons: return "menu.hideWorkspaceLabelsWithIcons"
+        case .workspaceNames: return "menu.showWorkspaceNames"
         case .workspaceNumberSign: return "menu.showWorkspaceNumberSign"
         case .trailingWorkspaceIcon: return "menu.showTrailingWorkspaceIcon"
         case .activeWorkspaceWindows: return "menu.showActiveWorkspaceWindows"

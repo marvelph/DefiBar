@@ -1,6 +1,8 @@
 "workspace.selectedApp" = "%@、選択中";
 "workspace.active" = "アクティブなワークスペース";
 "workspace.switch" = "このワークスペースに切り替え";
+"workspace.scrollWindowsLeft" = "前のウインドウを表示";
+"workspace.scrollWindowsRight" = "次のウインドウを表示";
 "status.connecting" = "Defi に接続中…";
 "status.menuHelp" = "右クリックで DefiBar メニューを開く";
 "status.cliMissing" = "Defi CLI が見つかりません";

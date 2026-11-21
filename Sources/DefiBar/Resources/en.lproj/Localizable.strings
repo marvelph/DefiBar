@@ -1,6 +1,8 @@
 "workspace.selectedApp" = "%@, selected";
 "workspace.active" = "Active workspace";
 "workspace.switch" = "Switch to this workspace";
+"workspace.scrollWindowsLeft" = "Show previous windows";
+"workspace.scrollWindowsRight" = "Show next windows";
 "status.connecting" = "Connecting to Defi…";
 "status.menuHelp" = "Right-click to open the DefiBar menu";
 "status.cliMissing" = "Defi CLI not found";

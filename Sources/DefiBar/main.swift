@@ -35,6 +35,7 @@ struct WorkspaceState: Decodable, Sendable {
             let showsTrailingPlus: Bool
         }
 
+        let id: String?
         let position: Int
         let name: String?
         let icon: String?
@@ -168,6 +169,18 @@ private enum DisplaySetting: String, CaseIterable {
 
 @MainActor
 final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private struct WindowStripWorkspace: Equatable {
+        let monitorID: UInt32
+        let workspaceID: String?
+        let position: Int?
+
+        init(monitorID: UInt32, workspace: WorkspaceState.Workspace) {
+            self.monitorID = monitorID
+            workspaceID = workspace.id
+            position = workspace.id == nil ? workspace.position : nil
+        }
+    }
+
     // The bundle identifier and notification prefix differ across Defi versions.
     private static let defiIdentifiers = ["com.qeude.defi", "com.quentin.defi"]
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -179,6 +192,9 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var switching = false
     private var lastClick: (display: Int, position: Int, time: CFTimeInterval)?
     private var lastWindowClick: (id: UInt64, time: CFTimeInterval)?
+    private var lastWindowScrollClick: (direction: WorkspaceButton.ScrollDirection, time: CFTimeInterval)?
+    private var windowStripWorkspace: WindowStripWorkspace?
+    private var windowStripViewport: WindowStripViewport?
     private let workspaceHUD = WorkspaceHUD()
     private var icons: [String: NSImage] = [:]
     private var connectionStatusKey = "status.connecting"
@@ -372,6 +388,9 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let status = unavailableStatus
         statusButton.toolTip = status
         if let status {
+            windowStripWorkspace = nil
+            windowStripViewport = nil
+            lastWindowScrollClick = nil
             statusButton.image = state == nil && connectionStatusKey == "status.connecting"
                 ? connectingIcon : warningIcon
             statusButton.imagePosition = .imageOnly
@@ -389,17 +408,40 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let showsWorkspaceIcons = DisplaySetting.workspaceIcons.isEnabled
         let hidesLabelsWithIcons = DisplaySetting.hideWorkspaceLabelsWithIcons.isEnabled
         let showsActiveWorkspaceWindows = DisplaySetting.activeWorkspaceWindows.isEnabled
-        for workspace in visibleWorkspaces.sorted(by: { $0.position < $1.position }) {
+        let workspaces = visibleWorkspaces.sorted(by: { $0.position < $1.position })
+        let stripWorkspace = showsActiveWorkspaceWindows ? workspaces.first(where: \.active).map {
+            WindowStripWorkspace(monitorID: monitor.id, workspace: $0)
+        } : nil
+        if windowStripWorkspace != stripWorkspace {
+            windowStripWorkspace = stripWorkspace
+            windowStripViewport = nil
+            lastWindowScrollClick = nil
+        }
+        for workspace in workspaces {
             let button = WorkspaceButton(
                 workspace: workspace, display: monitor.display,
                 labelStyle: labelStyle, showsWorkspaceIcon: showsWorkspaceIcons,
                 hidesLabelWithIcon: hidesLabelsWithIcons,
                 showsActiveWorkspaceWindows: showsActiveWorkspaceWindows,
+                windowStripViewport: workspace.active ? windowStripViewport : nil,
                 icon: icon(for:)
             )
+            if workspace.active, let stripWorkspace {
+                windowStripViewport = button.windowStripViewport
+                button.onWindowScroll = { [weak self] direction, firstWindowID in
+                    guard let self, self.windowStripWorkspace == stripWorkspace else { return }
+                    self.windowStripViewport?.firstWindowID = firstWindowID
+                    self.lastWindowScrollClick = (direction, CACurrentMediaTime())
+                    self.render()
+                }
+            }
             button.target = self
             button.action = #selector(switchWorkspace(_:))
             row.addArrangedSubview(button)
+            if workspace.active, let lastWindowScrollClick,
+               CACurrentMediaTime() - lastWindowScrollClick.time < clickFeedbackDuration {
+                button.showScrollClickFeedback(lastWindowScrollClick.direction, startedAt: lastWindowScrollClick.time)
+            }
             if let lastWindowClick, CACurrentMediaTime() - lastWindowClick.time < clickFeedbackDuration {
                 button.showWindowClickFeedback(id: lastWindowClick.id, startedAt: lastWindowClick.time)
             }
@@ -436,6 +478,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             view.bounds.contains(view.convert(pointInWindow, from: nil))
         }
         if let workspace = clicked as? WorkspaceButton {
+            if workspace.handleWindowScroll(at: pointInWindow) { return }
             if let id = workspace.windowID(at: pointInWindow) {
                 guard !switching else { return }
                 let time = CACurrentMediaTime()

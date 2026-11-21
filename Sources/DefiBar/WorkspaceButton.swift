@@ -4,6 +4,8 @@ private let activeWorkspaceBorderColor = NSColor.systemBlue.withAlphaComponent(0
 private let workspaceButtonHeight: CGFloat = 22
 private let iconSize: CGFloat = 14
 private let iconSlotWidth: CGFloat = 18
+private let windowStripMaximumWidth: CGFloat = 144
+private let windowScrollButtonWidth: CGFloat = 12
 
 let clickFeedbackDuration = 0.40
 
@@ -115,11 +117,65 @@ private final class WindowIconSlot: NSView {
 }
 
 @MainActor
+private struct WindowMarker {
+    private let text: String
+    private let image: NSImage?
+    private let font = NSFont.systemFont(ofSize: 12, weight: .medium)
+    let width: CGFloat
+
+    init(_ marker: WindowStripLayout.Marker) {
+        let symbol: String?
+        switch marker {
+        case .fullscreen: (symbol, text) = ("arrow.up.left.and.arrow.down.right", "⤢")
+        case .stackStart: (symbol, text) = (nil, "[")
+        case .stackEnd: (symbol, text) = (nil, "]")
+        case .floating: (symbol, text) = ("macwindow.on.rectangle", "❐")
+        }
+        image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }?
+            .withSymbolConfiguration(.init(pointSize: 12, weight: .medium))
+        if let image {
+            width = ceil(image.size.width)
+        } else {
+            let label = NSTextField(labelWithString: text)
+            label.font = font
+            width = ceil(label.intrinsicContentSize.width)
+        }
+    }
+
+    func makeView() -> NSView {
+        let view: NSView
+        if let image {
+            let icon = NSImageView(image: image)
+            icon.contentTintColor = .labelColor
+            view = icon
+        } else {
+            let label = NSTextField(labelWithString: text)
+            label.font = font
+            label.alignment = .center
+            view = label
+        }
+        view.alphaValue = 0.65
+        view.setAccessibilityElement(false)
+        view.widthAnchor.constraint(equalToConstant: width).isActive = true
+        return view
+    }
+}
+
+@MainActor
 final class WorkspaceButton: NSButton {
+    enum ScrollDirection {
+        case left, right
+    }
+
     let display: Int
     let position: Int
     let isActive: Bool
+    private(set) var windowStripViewport: WindowStripViewport?
+    var onWindowScroll: ((ScrollDirection, UInt64) -> Void)?
     private var windowSlots: [WindowIconSlot] = []
+    private var windowScrollButtons: [ScrollDirection: NSButton] = [:]
+    private var previousWindowID: UInt64?
+    private var nextWindowID: UInt64?
 
     func windowID(at pointInWindow: NSPoint) -> UInt64? {
         windowSlots.first { $0.bounds.contains($0.convert(pointInWindow, from: nil)) }?.windowID
@@ -129,6 +185,27 @@ final class WorkspaceButton: NSButton {
         windowSlots.first { $0.windowID == id }?.showClickFeedback(startedAt: startedAt)
     }
 
+    func handleWindowScroll(at pointInWindow: NSPoint) -> Bool {
+        guard let button = windowScrollButtons.values.first(where: {
+            $0.bounds.contains($0.convert(pointInWindow, from: nil))
+        }) else { return false }
+        if button.isEnabled { button.performClick(nil) }
+        return true
+    }
+
+    func showScrollClickFeedback(_ direction: ScrollDirection, startedAt: CFTimeInterval) {
+        guard let button = windowScrollButtons[direction] else { return }
+        button.wantsLayer = true
+        guard let layer = button.layer else { return }
+        layer.cornerRadius = 4
+        button.effectiveAppearance.performAsCurrentDrawingAppearance {
+            animateClickFeedback(
+                on: layer, color: activeWorkspaceBorderColor.cgColor,
+                background: NSColor.clear.cgColor, startedAt: startedAt
+            )
+        }
+    }
+
     init(
         workspace: WorkspaceState.Workspace,
         display: Int,
@@ -136,6 +213,7 @@ final class WorkspaceButton: NSButton {
         showsWorkspaceIcon: Bool,
         hidesLabelWithIcon: Bool,
         showsActiveWorkspaceWindows: Bool,
+        windowStripViewport: WindowStripViewport?,
         icon: (String) -> NSImage
     ) {
         self.display = display
@@ -179,7 +257,8 @@ final class WorkspaceButton: NSButton {
         let horizontalInset: CGFloat = 6
         let labelSpacing: CGFloat = 2
         let showsWindows = isActive && showsActiveWorkspaceWindows
-        let (iconViews, iconWidth) = showsWindows ? makeIconViews(for: workspace, icon: icon) : ([], 0)
+        let (iconViews, iconWidth) = showsWindows
+            ? makeIconViews(for: workspace, viewport: windowStripViewport, icon: icon) : ([], 0)
 
         let content = NSStackView(views: (labelView.map { [$0] } ?? []) + iconViews)
         content.orientation = .horizontal
@@ -233,79 +312,88 @@ final class WorkspaceButton: NSButton {
 
     private func makeIconViews(
         for workspace: WorkspaceState.Workspace,
+        viewport: WindowStripViewport?,
         icon: (String) -> NSImage
     ) -> (views: [NSView], width: CGFloat) {
-        var iconViews: [NSView] = []
-        var iconWidth: CGFloat = 0
-        func appendWindow(_ window: WorkspaceState.Window) {
-            let slot = WindowIconSlot(window: window, image: icon(window.appID))
-            windowSlots.append(slot)
-            iconViews.append(slot)
-            iconWidth += iconSlotWidth
-        }
+        guard !workspace.windows.isEmpty else { return ([], 0) }
 
-        let markerPointSize: CGFloat = 12
-        let markerOpacity: CGFloat = 0.65
-
-        func appendWindowGroupMarker(_ text: String) {
-            let label = NSTextField(labelWithString: text)
-            label.font = .systemFont(ofSize: markerPointSize, weight: .medium)
-            label.alphaValue = markerOpacity
-            label.alignment = .center
-            label.setAccessibilityElement(false)
-            let width = ceil(label.intrinsicContentSize.width)
-            let marker = NSView()
-            marker.addSubview(label)
-            label.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                marker.widthAnchor.constraint(equalToConstant: width),
-                marker.heightAnchor.constraint(equalToConstant: workspaceButtonHeight),
-                label.leadingAnchor.constraint(equalTo: marker.leadingAnchor),
-                label.trailingAnchor.constraint(equalTo: marker.trailingAnchor),
-                label.centerYAnchor.constraint(equalTo: marker.centerYAnchor)
-            ])
-            iconViews.append(marker)
-            iconWidth += width
-        }
-
-        func appendWindowGroupSymbol(_ name: String, fallback: String) {
-            let configuration = NSImage.SymbolConfiguration(pointSize: markerPointSize, weight: .medium)
-            guard let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-                .withSymbolConfiguration(configuration) else {
-                appendWindowGroupMarker(fallback)
-                return
+        let markers = Dictionary(uniqueKeysWithValues: WindowStripLayout.Marker.allCases.map {
+            ($0, WindowMarker($0))
+        })
+        let layout = WindowStripLayout(
+            workspace: workspace, slotWidth: iconSlotWidth, markerWidths: markers.mapValues(\.width)
+        )
+        let strip = layout.visibleStrip(
+            maximumWidth: windowStripMaximumWidth, arrowWidth: windowScrollButtonWidth, viewport: viewport
+        )
+        windowStripViewport = strip.viewport
+        var views: [NSView] = []
+        for item in strip.items {
+            switch item {
+            case .marker(let marker):
+                if let marker = markers[marker] { views.append(marker.makeView()) }
+            case .window(let window):
+                let slot = WindowIconSlot(window: window, image: icon(window.appID))
+                windowSlots.append(slot)
+                views.append(slot)
             }
-            let view = NSImageView(image: image)
-            view.contentTintColor = .labelColor
-            view.alphaValue = markerOpacity
-            view.setAccessibilityElement(false)
-            let width = ceil(image.size.width)
-            view.widthAnchor.constraint(equalToConstant: width).isActive = true
-            iconViews.append(view)
-            iconWidth += width
         }
+        guard strip.viewport != nil else { return (views, strip.width) }
 
-        var markedFullscreen = false
-        for column in workspace.tiledColumns {
-            if !markedFullscreen, column.first?.nativeFullscreen == true {
-                appendWindowGroupSymbol("arrow.up.left.and.arrow.down.right", fallback: "⤢")
-                markedFullscreen = true
-            }
-            let stacked = column.count > 1
-            if stacked { appendWindowGroupMarker("[") }
-            for window in column {
-                appendWindow(window)
-            }
-            if stacked { appendWindowGroupMarker("]") }
+        previousWindowID = strip.previousWindowID
+        nextWindowID = strip.nextWindowID
+        let previous = makeScrollButton(
+            symbol: "chevron.left", fallback: "‹", help: localized("workspace.scrollWindowsLeft"),
+            action: #selector(scrollWindowsLeft), enabled: previousWindowID != nil
+        )
+        let next = makeScrollButton(
+            symbol: "chevron.right", fallback: "›", help: localized("workspace.scrollWindowsRight"),
+            action: #selector(scrollWindowsRight), enabled: nextWindowID != nil
+        )
+        windowScrollButtons = [.left: previous, .right: next]
+        views.insert(previous, at: 0)
+
+        let remainingWidth = windowStripMaximumWidth - 2 * windowScrollButtonWidth - strip.width
+        if remainingWidth > 0 {
+            // Keep the arrow in the same place as the number of visible markers changes.
+            let spacer = NSView()
+            spacer.widthAnchor.constraint(equalToConstant: remainingWidth).isActive = true
+            views.append(spacer)
         }
-        let floating = workspace.windows.filter(\.floating)
-        if !floating.isEmpty {
-            appendWindowGroupSymbol("macwindow.on.rectangle", fallback: "❐")
+        views.append(next)
+        return (views, windowStripMaximumWidth)
+    }
+
+    private func makeScrollButton(
+        symbol: String, fallback: String, help: String, action: Selector, enabled: Bool
+    ) -> NSButton {
+        let button = NSButton(frame: .zero)
+        if let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 9, weight: .semibold)) {
+            button.image = image
+            button.imagePosition = .imageOnly
+        } else {
+            button.title = fallback
         }
-        for window in floating {
-            appendWindow(window)
-        }
-        return (iconViews, iconWidth)
+        button.isBordered = false
+        button.isEnabled = enabled
+        button.target = self
+        button.action = action
+        button.toolTip = help
+        button.setAccessibilityLabel(help)
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: windowScrollButtonWidth),
+            button.heightAnchor.constraint(equalToConstant: workspaceButtonHeight)
+        ])
+        return button
+    }
+
+    @objc private func scrollWindowsLeft() {
+        if let previousWindowID { onWindowScroll?(.left, previousWindowID) }
+    }
+
+    @objc private func scrollWindowsRight() {
+        if let nextWindowID { onWindowScroll?(.right, nextWindowID) }
     }
 
     required init?(coder: NSCoder) { nil }

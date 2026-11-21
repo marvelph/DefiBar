@@ -269,10 +269,8 @@ final class WindowStripView: NSView {
         marker.isHidden = inset == 0
         guard inset > 0 else { return }
 
-        let size = marker.intrinsicContentSize
-        let width = ceil(size.width)
-        let x = onLeft ? inset - width : stripWidth - inset
-        marker.frame = NSRect(x: x, y: (workspaceButtonHeight - size.height) / 2, width: width, height: size.height)
+        let x = onLeft ? inset - marker.frame.width : stripWidth - inset
+        marker.setFrameOrigin(NSPoint(x: x, y: 0))
     }
 
     private func updateVisibleViews() {
@@ -288,18 +286,14 @@ final class WindowStripView: NSView {
         for index in visible where visibleViews[index] == nil {
             let element = elements[index]
             let view: NSView
-            let height: CGFloat
             switch element.item {
             case .window(let window):
                 view = WindowIconSlot(window: window, image: icon(window.appID))
-                height = workspaceButtonHeight
             case .marker(let marker):
                 guard let marker = Self.markers[marker] else { continue }
                 view = marker.makeView()
-                height = view.intrinsicContentSize.height
             }
-            view.frame = NSRect(x: element.x, y: (workspaceButtonHeight - height) / 2,
-                                width: element.width, height: height)
+            view.frame = NSRect(x: element.x, y: 0, width: element.width, height: workspaceButtonHeight)
             document.addSubview(view)
             visibleViews[index] = view
         }
@@ -308,7 +302,7 @@ final class WindowStripView: NSView {
 
 @MainActor
 private struct WindowMarker {
-    private static let pointSize: CGFloat = 13
+    private static let pointSize: CGFloat = 10
     private static let font = NSFont.systemFont(ofSize: pointSize, weight: .medium)
     private let text: String
     private let image: NSImage?
@@ -344,8 +338,17 @@ private struct WindowMarker {
         }
         view.alphaValue = 0.65
         view.setAccessibilityElement(false)
-        view.widthAnchor.constraint(equalToConstant: width).isActive = true
-        return view
+        view.translatesAutoresizingMaskIntoConstraints = false
+
+        let slot = NSView(frame: NSRect(x: 0, y: 0, width: width, height: workspaceButtonHeight))
+        slot.setAccessibilityElement(false)
+        slot.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
+            view.centerYAnchor.constraint(equalTo: slot.centerYAnchor),
+            view.widthAnchor.constraint(equalTo: slot.widthAnchor)
+        ])
+        return slot
     }
 }
 

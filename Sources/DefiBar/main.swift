@@ -183,8 +183,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private struct WindowStripState {
         let workspace: WindowStripWorkspace
-        var viewport: WindowStripViewport?
-        var lastClick: (direction: WindowStripView.ScrollDirection, time: CFTimeInterval)?
+        var firstWindowID: UInt64?
     }
 
     // The bundle identifier and notification prefix differ across Defi versions.
@@ -423,29 +422,17 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 labelStyle: labelStyle, showsWorkspaceIcon: showsWorkspaceIcons,
                 hidesLabelWithIcon: hidesLabelsWithIcons,
                 showsActiveWorkspaceWindows: showsActiveWorkspaceWindows,
-                windowStripViewport: workspace.active ? windowStripState?.viewport : nil,
+                firstWindowID: workspace.active ? windowStripState?.firstWindowID : nil,
                 icon: icon(for:)
             )
-            if workspace.active, let stripWorkspace {
-                windowStripState?.viewport = button.windowStrip?.viewport
-                button.windowStrip?.onScroll = { [weak self] direction, firstWindowID in
-                    guard let self, self.windowStripState?.workspace == stripWorkspace else { return }
-                    self.windowStripState?.viewport?.firstWindowID = firstWindowID
-                    self.windowStripState?.lastClick = (direction, CACurrentMediaTime())
-                    self.render()
-                }
+            if workspace.active {
+                windowStripState?.firstWindowID = button.windowStrip?.firstWindowID
             }
             button.target = self
             button.action = #selector(switchWorkspace(_:))
             row.addArrangedSubview(button)
-            if let strip = button.windowStrip {
-                if let scrollClick = windowStripState?.lastClick,
-                   CACurrentMediaTime() - scrollClick.time < clickFeedbackDuration {
-                    strip.showScrollClickFeedback(scrollClick.direction, startedAt: scrollClick.time)
-                }
-                if let lastWindowClick, CACurrentMediaTime() - lastWindowClick.time < clickFeedbackDuration {
-                    strip.showWindowClickFeedback(id: lastWindowClick.id, startedAt: lastWindowClick.time)
-                }
+            if let lastWindowClick, CACurrentMediaTime() - lastWindowClick.time < clickFeedbackDuration {
+                button.windowStrip?.showWindowClickFeedback(id: lastWindowClick.id, startedAt: lastWindowClick.time)
             }
             if let lastClick, lastClick.display == monitor.display, lastClick.position == workspace.position {
                 button.showClickFeedback(startedAt: lastClick.time)
@@ -480,7 +467,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             view.bounds.contains(view.convert(pointInWindow, from: nil))
         }
         if let workspace = clicked as? WorkspaceButton {
-            if workspace.windowStrip?.handleScroll(at: pointInWindow) == true { return }
+            if workspace.windowStrip?.containsContinuationMarker(at: pointInWindow) == true { return }
             if let strip = workspace.windowStrip, let id = strip.windowID(at: pointInWindow) {
                 guard !switching else { return }
                 let time = CACurrentMediaTime()

@@ -1,13 +1,8 @@
 import Foundation
 
-struct WindowStripViewport {
-    var firstWindowID: UInt64
-    let focusedWindowID: UInt64?
-}
-
 struct WindowStripLayout {
     enum Marker: CaseIterable {
-        case fullscreen, stackStart, stackEnd, floating
+        case fullscreen, stackStart, stackEnd, floating, continuationLeft, continuationRight
     }
 
     enum Item {
@@ -18,9 +13,7 @@ struct WindowStripLayout {
     struct VisibleStrip {
         let items: [Item]
         let width: CGFloat
-        let viewport: WindowStripViewport?
-        let previousWindowID: UInt64?
-        let nextWindowID: UInt64?
+        let firstWindowID: UInt64?
     }
 
     private struct Entry {
@@ -41,8 +34,10 @@ struct WindowStripLayout {
 
     private let items: [Item]
     private let windows: [IndexedWindow]
+    private let itemOffsets: [CGFloat]
     private let slotWidth: CGFloat
-    private let markerWidths: [Marker: CGFloat]
+    private let leftMarkerWidth: CGFloat
+    private let rightMarkerWidth: CGFloat
 
     init(workspace: WorkspaceState.Workspace, slotWidth: CGFloat, markerWidths: [Marker: CGFloat]) {
         var entries: [Entry] = []
@@ -57,67 +52,67 @@ struct WindowStripLayout {
         }
         (items, windows) = Self.makeItems(from: entries)
         self.slotWidth = slotWidth
-        self.markerWidths = markerWidths
+        leftMarkerWidth = markerWidths[.continuationLeft, default: 0]
+        rightMarkerWidth = markerWidths[.continuationRight, default: 0]
+        // Each offset is the width before that item. The final offset is the full strip width.
+        var offsets: [CGFloat] = [0]
+        var offset: CGFloat = 0
+        for item in items {
+            switch item {
+            case .window: offset += slotWidth
+            case .marker(let marker): offset += markerWidths[marker, default: 0]
+            }
+            offsets.append(offset)
+        }
+        itemOffsets = offsets
     }
 
-    func visibleStrip(maximumWidth: CGFloat, arrowWidth: CGFloat, viewport: WindowStripViewport?) -> VisibleStrip {
-        if CGFloat(windows.count) * slotWidth <= maximumWidth {
-            let allWidth = items.reduce(CGFloat.zero) { $0 + width(of: $1) }
-            if allWidth <= maximumWidth {
-                return VisibleStrip(items: items, width: allWidth, viewport: nil,
-                                    previousWindowID: nil, nextWindowID: nil)
-            }
+    func visibleStrip(maximumWidth: CGFloat, firstWindowID: UInt64?) -> VisibleStrip {
+        let fullWidth = itemOffsets[items.count]
+        if fullWidth <= maximumWidth {
+            return VisibleStrip(items: items, width: fullWidth, firstWindowID: nil)
         }
 
-        let availableWidth = maximumWidth - 2 * arrowWidth
         let focusedIndex = windows.firstIndex(where: \.window.selected)
-        let focusedWindowID = focusedIndex.map { windows[$0].window.id }
+        let previousStart = firstWindowID.flatMap { id in windows.firstIndex { $0.window.id == id } }
+        let previousRange = previousStart.map { fittingRange(startingAt: $0, maximumWidth: maximumWidth) }
         let range: FittedRange
-        if let viewport, let start = windows.firstIndex(where: { $0.window.id == viewport.firstWindowID }) {
-            let current = fittingRange(startingAt: start, maximumWidth: availableWidth)
-            if viewport.focusedWindowID != focusedWindowID, let focusedIndex, !current.windows.contains(focusedIndex) {
-                range = centeredRange(on: focusedIndex, maximumWidth: availableWidth)
-            } else {
-                range = current
-            }
-        } else if let focusedIndex {
-            range = centeredRange(on: focusedIndex, maximumWidth: availableWidth)
+        if let focusedIndex, previousRange?.windows.contains(focusedIndex) != true {
+            range = centeredRange(on: focusedIndex, maximumWidth: maximumWidth)
         } else {
-            range = fittingRange(startingAt: 0, maximumWidth: availableWidth)
+            range = previousRange ?? fittingRange(startingAt: 0, maximumWidth: maximumWidth)
         }
 
-        let start = range.windows.lowerBound
-        return VisibleStrip(
-            items: Array(items[range.items]),
-            width: range.width,
-            viewport: WindowStripViewport(firstWindowID: windows[start].window.id, focusedWindowID: focusedWindowID),
-            previousWindowID: start > 0 ? windows[start - 1].window.id : nil,
-            nextWindowID: range.items.upperBound < items.count && start + 1 < windows.count
-                ? windows[start + 1].window.id : nil
-        )
+        var visible = Array(items[range.items])
+        if range.items.lowerBound > 0 { visible.insert(.marker(.continuationLeft), at: 0) }
+        if range.items.upperBound < items.count { visible.append(.marker(.continuationRight)) }
+        return VisibleStrip(items: visible, width: range.width, firstWindowID: windows[range.windows.lowerBound].window.id)
     }
 
     private func fittingRange(startingAt start: Int, maximumWidth: CGFloat) -> FittedRange {
         let firstItem = windows[start].firstItem
+        let firstOffset = itemOffsets[firstItem]
+        let leftWidth = firstItem > 0 ? leftMarkerWidth : 0
+        let remainingWidth = itemOffsets[items.count] - firstOffset
+        let rightWidth = leftWidth + remainingWidth > maximumWidth ? rightMarkerWidth : 0
+        let contentWidth = maximumWidth - leftWidth - rightWidth
+
         var endItem = firstItem
         var endWindow = start
-        var usedWidth: CGFloat = 0
-        while endItem < items.count {
-            let item = items[endItem]
-            let itemWidth = width(of: item)
-            guard usedWidth + itemWidth <= maximumWidth else { break }
-            usedWidth += itemWidth
-            if case .window = item { endWindow += 1 }
+        while endItem < items.count, itemOffsets[endItem + 1] - firstOffset <= contentWidth {
+            if case .window = items[endItem] { endWindow += 1 }
             endItem += 1
         }
+        let usedWidth = itemOffsets[endItem] - firstOffset + leftWidth + rightWidth
         return FittedRange(items: firstItem..<endItem, windows: start..<endWindow, width: usedWidth)
     }
 
     private func centeredRange(on index: Int, maximumWidth: CGFloat) -> FittedRange {
         var best = fittingRange(startingAt: index, maximumWidth: maximumWidth)
-        for start in (0..<index).reversed() {
+        let earliest = max(0, index + 1 - Int(maximumWidth / slotWidth))
+        for start in (earliest..<index).reversed() {
             let candidate = fittingRange(startingAt: start, maximumWidth: maximumWidth)
-            guard candidate.windows.contains(index) else { break }
+            guard candidate.windows.contains(index) else { continue }
             let candidateOffset = abs(candidate.windows.lowerBound + candidate.windows.upperBound - 1 - 2 * index)
             let bestOffset = abs(best.windows.lowerBound + best.windows.upperBound - 1 - 2 * index)
             if candidate.windows.count > best.windows.count
@@ -148,12 +143,5 @@ struct WindowStripLayout {
             if let stack = entry.stack, next?.stack != stack { items.append(.marker(.stackEnd)) }
         }
         return (items, windows)
-    }
-
-    private func width(of item: Item) -> CGFloat {
-        switch item {
-        case .window: return slotWidth
-        case .marker(let marker): return markerWidths[marker, default: 0]
-        }
     }
 }

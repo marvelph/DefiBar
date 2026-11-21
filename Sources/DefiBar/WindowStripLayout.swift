@@ -3,6 +3,25 @@ import Foundation
 struct WindowStripPosition {
     let offset: CGFloat
     let focusedWindowID: UInt64?
+    var focusAnimation: WindowStripFocusAnimation? = nil
+}
+
+struct WindowStripFocusAnimation {
+    private static let duration: TimeInterval = 0.18
+
+    let startOffset: CGFloat
+    let targetOffset: CGFloat
+    let startedAt: TimeInterval
+
+    var endsAt: TimeInterval { startedAt + Self.duration }
+
+    func offset(at time: TimeInterval) -> CGFloat {
+        if time >= endsAt { return targetOffset }
+        let progress = CGFloat(max(0, time - startedAt) / Self.duration)
+        let remaining = 1 - progress
+        let eased = 1 - remaining * remaining * remaining
+        return startOffset + (targetOffset - startOffset) * eased
+    }
 }
 
 struct WindowStripLayout {
@@ -89,12 +108,34 @@ struct WindowStripLayout {
         min(max(0, offset), maximumOffset(for: viewportWidth))
     }
 
-    func restoredOffset(for viewportWidth: CGFloat, position: WindowStripPosition?) -> CGFloat {
-        let offset = clampedOffset(position?.offset ?? 0, viewportWidth: viewportWidth)
-        guard let focusedWindowRange, position?.focusedWindowID != focusedWindowID else { return offset }
+    func restoredPosition(
+        for viewportWidth: CGFloat, previous: WindowStripPosition?, animatesFocus: Bool, at time: TimeInterval
+    ) -> WindowStripPosition {
+        let offset = clampedOffset(previous?.offset ?? 0, viewportWidth: viewportWidth)
+        let target = focusTarget(from: offset, viewportWidth: viewportWidth, previous: previous)
+        guard animatesFocus, let previous, target != offset else {
+            return WindowStripPosition(offset: target, focusedWindowID: focusedWindowID)
+        }
+
+        if previous.focusedWindowID == focusedWindowID, let animation = previous.focusAnimation,
+           animation.targetOffset == target, animation.startOffset == clampedOffset(animation.startOffset, viewportWidth: viewportWidth) {
+            if time >= animation.endsAt {
+                return WindowStripPosition(offset: target, focusedWindowID: focusedWindowID)
+            }
+            return WindowStripPosition(offset: offset, focusedWindowID: focusedWindowID, focusAnimation: animation)
+        }
+
+        let animation = WindowStripFocusAnimation(startOffset: offset, targetOffset: target, startedAt: time)
+        return WindowStripPosition(offset: offset, focusedWindowID: focusedWindowID, focusAnimation: animation)
+    }
+
+    private func focusTarget(from offset: CGFloat, viewportWidth: CGFloat, previous: WindowStripPosition?) -> CGFloat {
+        guard let focusedWindowRange else { return offset }
+        let focusChanged = previous?.focusedWindowID != focusedWindowID
+        guard focusChanged || previous?.focusAnimation != nil else { return offset }
 
         let edges = edges(at: offset, viewportWidth: viewportWidth)
-        if position != nil,
+        if focusChanged, previous != nil,
            focusedWindowRange.lowerBound >= offset + edges.left,
            focusedWindowRange.upperBound <= offset + viewportWidth - edges.right {
             return offset

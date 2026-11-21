@@ -143,7 +143,7 @@ final class WindowStripView: NSView {
     let stripWidth: CGFloat
     var canScroll: Bool { stripLayout.maximumOffset(for: stripWidth) > 0 }
     var position: WindowStripPosition {
-        WindowStripPosition(offset: offset, focusedWindowID: stripLayout.focusedWindowID)
+        WindowStripPosition(offset: offset, focusedWindowID: stripLayout.focusedWindowID, focusAnimation: focusAnimation)
     }
 
     private let stripLayout: WindowStripLayout
@@ -153,6 +153,8 @@ final class WindowStripView: NSView {
     private let leftMarker: NSView
     private let rightMarker: NSView
     private var offset: CGFloat
+    private var focusAnimation: WindowStripFocusAnimation?
+    private var focusAnimationTimer: Timer?
     private var visibleViews: [Int: NSView] = [:]
 
     init(
@@ -163,9 +165,15 @@ final class WindowStripView: NSView {
             workspace: workspace, slotWidth: iconSlotWidth, markerWidths: Self.markerWidths
         )
         stripLayout = layout
-        stripWidth = min(maximumWidth, layout.contentWidth)
+        let viewportWidth = min(maximumWidth, layout.contentWidth)
+        stripWidth = viewportWidth
         self.icon = icon
-        offset = layout.restoredOffset(for: stripWidth, position: position)
+        let restored = layout.restoredPosition(
+            for: viewportWidth, previous: position,
+            animatesFocus: !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, at: CACurrentMediaTime()
+        )
+        offset = restored.offset
+        focusAnimation = restored.focusAnimation
         document = NSView(frame: NSRect(x: 0, y: 0, width: layout.contentWidth, height: workspaceButtonHeight))
         leftMarker = Self.markers[.continuationLeft]!.makeView()
         rightMarker = Self.markers[.continuationRight]!.makeView()
@@ -186,17 +194,26 @@ final class WindowStripView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        stopFocusAnimationTimer()
+        guard window != nil, focusAnimation != nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.advanceFocusAnimation(at: CACurrentMediaTime()) }
+        }
+        focusAnimationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
     func contains(_ pointInWindow: NSPoint) -> Bool {
         bounds.contains(convert(pointInWindow, from: nil))
     }
 
     func scrollHorizontally(by delta: CGFloat) -> Bool {
         guard canScroll else { return false }
-        let newOffset = stripLayout.clampedOffset(offset + delta, viewportWidth: stripWidth)
-        if newOffset != offset {
-            offset = newOffset
-            updateViewport()
-        }
+        focusAnimation = nil
+        stopFocusAnimationTimer()
+        setOffset(stripLayout.clampedOffset(offset + delta, viewportWidth: stripWidth))
         return true
     }
 
@@ -214,6 +231,26 @@ final class WindowStripView: NSView {
     func showWindowClickFeedback(id: UInt64, startedAt: CFTimeInterval) {
         visibleViews.values.compactMap { $0 as? WindowIconSlot }
             .first { $0.windowID == id }?.showClickFeedback(startedAt: startedAt)
+    }
+
+    private func advanceFocusAnimation(at time: TimeInterval) {
+        guard let focusAnimation else { return }
+        setOffset(focusAnimation.offset(at: time))
+        if time >= focusAnimation.endsAt {
+            self.focusAnimation = nil
+            stopFocusAnimationTimer()
+        }
+    }
+
+    private func stopFocusAnimationTimer() {
+        focusAnimationTimer?.invalidate()
+        focusAnimationTimer = nil
+    }
+
+    private func setOffset(_ newOffset: CGFloat) {
+        guard newOffset != offset else { return }
+        offset = newOffset
+        updateViewport()
     }
 
     private func updateViewport() {

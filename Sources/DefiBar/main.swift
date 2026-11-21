@@ -396,8 +396,16 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return nil
     }
 
+    private var activeWindowStrip: WindowStripView? {
+        row.arrangedSubviews.lazy.compactMap { ($0 as? WorkspaceButton)?.windowStrip }.first
+    }
+
     private func render() {
         guard let statusButton = item.button else { return }
+        // The strip may have moved since the last notification, even without user scrolling.
+        if windowStripState?.position != nil, let activeWindowStrip {
+            windowStripState?.position = activeWindowStrip.position
+        }
         for view in row.arrangedSubviews {
             row.removeArrangedSubview(view)
             view.removeFromSuperview()
@@ -477,7 +485,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func scrollWindowStrip(with event: NSEvent) -> Bool {
         guard item.menu == nil, let window = item.button?.window,
-              let strip = row.arrangedSubviews.lazy.compactMap({ ($0 as? WorkspaceButton)?.windowStrip }).first,
+              let strip = activeWindowStrip,
               strip.canScroll else {
             windowStripScrollGesture = .idle
             return false

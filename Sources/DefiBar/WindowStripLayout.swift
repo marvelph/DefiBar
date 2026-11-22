@@ -131,18 +131,29 @@ struct WindowStripLayout {
 
     private func focusTarget(from offset: CGFloat, viewportWidth: CGFloat, previous: WindowStripPosition?) -> CGFloat {
         guard let focusedWindowRange else { return offset }
-        let focusChanged = previous?.focusedWindowID != focusedWindowID
-        guard focusChanged || previous?.focusAnimation != nil else { return offset }
-
-        let edges = edges(at: offset, viewportWidth: viewportWidth)
-        if focusChanged, previous != nil,
-           focusedWindowRange.lowerBound >= offset + edges.left,
-           focusedWindowRange.upperBound <= offset + viewportWidth - edges.right {
-            return offset
+        guard let previous else {
+            let center = (focusedWindowRange.lowerBound + focusedWindowRange.upperBound) / 2
+            return clampedOffset(center - viewportWidth / 2, viewportWidth: viewportWidth)
         }
 
-        let center = (focusedWindowRange.lowerBound + focusedWindowRange.upperBound) / 2
-        return clampedOffset(center - viewportWidth / 2, viewportWidth: viewportWidth)
+        let referenceOffset: CGFloat
+        if previous.focusedWindowID == focusedWindowID {
+            guard let animation = previous.focusAnimation else { return offset }
+            // Recompute from the start so refreshes during the animation keep its destination.
+            referenceOffset = clampedOffset(animation.startOffset, viewportWidth: viewportWidth)
+        } else {
+            referenceOffset = offset
+        }
+
+        let leadingSpace = focusedWindowRange.lowerBound
+        let trailingSpace = contentWidth - focusedWindowRange.upperBound
+        // Each edge clips the scroll distance plus the visible part of its marker.
+        // Near an endpoint, the visible marker is as wide as the remaining distance.
+        let lastVisibleOffset = max(leadingSpace - leftMarkerWidth, leadingSpace / 2)
+        let firstVisibleOffset = maximumOffset(for: viewportWidth)
+            - max(trailingSpace - rightMarkerWidth, trailingSpace / 2)
+        let target = min(max(referenceOffset, firstVisibleOffset), lastVisibleOffset)
+        return clampedOffset(target, viewportWidth: viewportWidth)
     }
 
     private static func makeItems(from entries: [Entry]) -> [Item] {

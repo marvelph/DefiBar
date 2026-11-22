@@ -2,8 +2,8 @@
 set -eu
 cd "$(dirname "$0")"
 
-version=${DEFI_BAR_VERSION:-0.4.0}
-build_number=${DEFI_BAR_BUILD_NUMBER:-4}
+version=${DEFI_BAR_VERSION:-0.5.0}
+build_number=${DEFI_BAR_BUILD_NUMBER:-5}
 public_key=${SPARKLE_PUBLIC_ED_KEY:-}
 feed_url=${SPARKLE_FEED_URL:-https://github.com/marvelph/DefiBar/releases/latest/download/appcast.xml}
 signing_identity=${DEFI_BAR_SIGNING_IDENTITY:-}

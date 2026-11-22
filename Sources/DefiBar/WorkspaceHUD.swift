@@ -84,8 +84,18 @@ final class WorkspaceHUD {
         for workspace: WorkspaceState.Workspace,
         labelStyle: WorkspaceState.Workspace.LabelStyle
     ) -> NSView {
+        let pointSize: CGFloat = 24
+        let weight: NSFont.Weight = .semibold
+        if let image = workspace.trailingPlusImage(
+            style: labelStyle, pointSize: pointSize, weight: weight, accessibilityDescription: "+"
+        ) {
+            let view = NSImageView(image: image)
+            view.contentTintColor = .labelColor
+            return view
+        }
+
         let label = NSTextField(labelWithString: workspace.label(style: labelStyle))
-        label.font = .systemFont(ofSize: 24, weight: .semibold)
+        label.font = .systemFont(ofSize: pointSize, weight: weight)
         label.alignment = .center
         label.lineBreakMode = .byTruncatingTail
 

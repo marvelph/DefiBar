@@ -58,6 +58,14 @@ struct WorkspaceState: Decodable, Sendable {
             return NSImage(systemSymbolName: icon, accessibilityDescription: nil)
         }
 
+        func trailingPlusImage(
+            style: LabelStyle, pointSize: CGFloat, weight: NSFont.Weight, accessibilityDescription: String? = nil
+        ) -> NSImage? {
+            guard kind == "trailing", style.showsTrailingPlus else { return nil }
+            return NSImage(systemSymbolName: "plus", accessibilityDescription: accessibilityDescription)?
+                .withSymbolConfiguration(.init(pointSize: pointSize, weight: weight))
+        }
+
         func label(style: LabelStyle) -> String {
             let numberedLabel = style.showsNumberSign ? "#\(position)" : String(position)
             if kind == "trailing" { return style.showsTrailingPlus ? "+" : numberedLabel }

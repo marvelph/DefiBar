@@ -51,18 +51,16 @@ final class WorkspaceButton: NSButton {
         let labelText = workspace.label(style: labelStyle)
         let workspaceIcon = showsWorkspaceIcon ? workspace.symbolImage : nil
         let hidesLabel = hidesLabelWithIcon && workspaceIcon != nil
+        let labelPointSize: CGFloat = 12
         let labelWeight: NSFont.Weight = isActive ? .semibold : .medium
         let labelView: NSView?
         let labelWidth: CGFloat
-        let labelSymbolConfiguration = NSImage.SymbolConfiguration(
-            pointSize: 12, weight: labelWeight
-        )
         if hidesLabel {
             labelWidth = 0
             labelView = nil
-        } else if labelStyle.showsTrailingPlus, workspace.kind == "trailing",
-                  let image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
-            .withSymbolConfiguration(labelSymbolConfiguration) {
+        } else if let image = workspace.trailingPlusImage(
+            style: labelStyle, pointSize: labelPointSize, weight: labelWeight
+        ) {
             let view = NSImageView(image: image)
             view.contentTintColor = .labelColor
             labelWidth = ceil(image.size.width)
@@ -70,7 +68,7 @@ final class WorkspaceButton: NSButton {
             labelView = view
         } else {
             let label = NSTextField(labelWithString: labelText)
-            label.font = .systemFont(ofSize: 12, weight: labelWeight)
+            label.font = .systemFont(ofSize: labelPointSize, weight: labelWeight)
             labelView = label
             labelWidth = ceil(label.intrinsicContentSize.width)
         }

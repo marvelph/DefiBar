@@ -602,6 +602,19 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         render(preservingWindowStripPosition: false)
     }
 
+    private func resetDisplaySettings() {
+        let previousWidth = WindowStripWidth.value
+        for setting in DisplaySetting.allCases {
+            UserDefaults.standard.removeObject(forKey: setting.rawValue)
+        }
+        WindowStripWidth.reset()
+        workspaceHUD.dismiss()
+
+        let widthChanged = previousWidth != WindowStripWidth.value
+        if widthChanged { windowStripState?.gesture = .idle }
+        render(preservingWindowStripPosition: !widthChanged)
+    }
+
     @objc private func openDefiBarSettings() {
         if let settingsWindow {
             NSApp.activate()
@@ -612,7 +625,8 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let settingsView = DefiBarSettingsView(
             onLoginToggle: { [weak self] in self?.toggleLaunchAtLogin() },
             onDisplayChange: { [weak self] setting in self?.displaySettingChanged(setting) },
-            onWidthChange: { [weak self] width in self?.setWindowStripWidth(width) }
+            onWidthChange: { [weak self] width in self?.setWindowStripWidth(width) },
+            onDisplayReset: { [weak self] in self?.resetDisplaySettings() }
         )
         let window = NSWindow(contentViewController: NSHostingController(rootView: settingsView))
         window.styleMask = [.titled, .closable]

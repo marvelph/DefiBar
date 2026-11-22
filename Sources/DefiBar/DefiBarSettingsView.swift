@@ -41,6 +41,10 @@ enum WindowStripWidth {
         set { UserDefaults.standard.set(clamped(newValue), forKey: key) }
     }
 
+    static func reset() {
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+
     private static func clamped(_ width: Int) -> Int {
         min(max(width, range.lowerBound), range.upperBound)
     }
@@ -51,6 +55,7 @@ struct DefiBarSettingsView: View {
     let onLoginToggle: () -> Void
     let onDisplayChange: (DisplaySetting) -> Void
     let onWidthChange: (Int) -> Void
+    let onDisplayReset: () -> Void
 
     @State private var loginStatus = SMAppService.mainApp.status
     @State private var width = Double(WindowStripWidth.value)
@@ -88,6 +93,13 @@ struct DefiBarSettingsView: View {
                 toggle(.applicationsInWorkspaceHUD)
             }
 
+            Section {
+                Button(localized("settings.resetDisplay")) {
+                    onDisplayReset()
+                    width = Double(WindowStripWidth.value)
+                }
+            }
+
             Section(localized("settings.about")) {
                 LabeledContent(localized("settings.version")) {
                     Text(appVersion)
@@ -97,7 +109,7 @@ struct DefiBarSettingsView: View {
         }
         .formStyle(.grouped)
         .toggleStyle(.checkbox)
-        .frame(width: 560, height: 690)
+        .frame(width: 560, height: 730)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             loginStatus = SMAppService.mainApp.status
             if !isAdjustingWidth { width = Double(WindowStripWidth.value) }

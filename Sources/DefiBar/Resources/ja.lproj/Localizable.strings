@@ -28,6 +28,7 @@
 "settings.windowStripWidthValue" = "%ld pt";
 "settings.showWorkspaceInfoOnSwitch" = "切り替え時にワークスペース情報を表示";
 "settings.showApplicationsInWorkspaceInfo" = "ワークスペース情報にアプリケーションを表示";
+"settings.resetDisplay" = "表示設定を初期値に戻す";
 "settings.about" = "DefiBar について";
 "settings.version" = "バージョン";
 "menu.checkForUpdates" = "アップデートを確認…";

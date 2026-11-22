@@ -28,6 +28,7 @@
 "settings.windowStripWidthValue" = "%ld pt";
 "settings.showWorkspaceInfoOnSwitch" = "Show Workspace Info When Switching";
 "settings.showApplicationsInWorkspaceInfo" = "Show Applications in Workspace Info";
+"settings.resetDisplay" = "Restore Default Display Settings";
 "settings.about" = "About DefiBar";
 "settings.version" = "Version";
 "menu.checkForUpdates" = "Check for Updates…";

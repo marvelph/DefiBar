@@ -106,7 +106,7 @@ enum DefiClient {
         return list.windows.first { $0.id == id }?.title
     }
 
-    static func run(_ arguments: [String]) throws -> Data {
+    static func run(_ arguments: [String], timeout: TimeInterval = 3) throws -> Data {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let environment = ProcessInfo.processInfo.environment
         let searchPath = environment["PATH", default: ""]
@@ -131,9 +131,9 @@ enum DefiClient {
         try process.run()
 
         // Bound the read if Defi stops responding to the CLI.
-        let timeout = DispatchWorkItem { if process.isRunning { process.terminate() } }
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3, execute: timeout)
-        defer { timeout.cancel() }
+        let terminateProcess = DispatchWorkItem { if process.isRunning { process.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: terminateProcess)
+        defer { terminateProcess.cancel() }
         let data = output.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         guard process.terminationStatus == 0 else { throw Failure.unavailable }
@@ -203,6 +203,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var reading = false
     private var refreshPending = false
     private var switching = false
+    private var changingDefiService = false
     private var lastClick: (display: Int, position: Int, time: CFTimeInterval)?
     private var lastWindowClick: (id: UInt64, time: CFTimeInterval)?
     private var windowStripState: WindowStripState?
@@ -566,6 +567,31 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc private func startDefi() {
+        changeDefiService("start")
+    }
+
+    @objc private func stopDefi() {
+        changeDefiService("stop")
+    }
+
+    private func changeDefiService(_ command: String) {
+        guard !changingDefiService else { return }
+        changingDefiService = true
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                // Defi's stop command waits for window restoration and daemon shutdown.
+                Result { try DefiClient.run(["service", command], timeout: 15) }
+            }.value
+            changingDefiService = false
+            if case .failure(let error) = result {
+                NSLog("DefiBar: Defi service %@ failed: %@", command, String(describing: error))
+                NSSound.beep()
+            }
+            refresh()
+        }
+    }
+
     @objc private func toggleLaunchAtLogin() {
         let service = SMAppService.mainApp
         do {
@@ -654,6 +680,14 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             statusItem.isEnabled = false
             menu.addItem(.separator())
         }
+        let start = menu.addItem(
+            withTitle: localized("menu.startDefi"), action: changingDefiService ? nil : #selector(startDefi), keyEquivalent: ""
+        )
+        start.target = self
+        let stop = menu.addItem(
+            withTitle: localized("menu.stopDefi"), action: changingDefiService ? nil : #selector(stopDefi), keyEquivalent: ""
+        )
+        stop.target = self
         let settings = menu.addItem(withTitle: localized("menu.settings"), action: #selector(openDefiSettings), keyEquivalent: "")
         settings.target = self
         menu.addItem(.separator())

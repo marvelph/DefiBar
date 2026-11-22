@@ -183,7 +183,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private struct WindowStripState {
         let workspace: WindowStripWorkspace
-        var position: WindowStripPosition?
+        var gesture = WindowStripScrollGesture.idle
     }
 
     // The bundle identifier and notification prefix differ across Defi versions.
@@ -198,7 +198,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastClick: (display: Int, position: Int, time: CFTimeInterval)?
     private var lastWindowClick: (id: UInt64, time: CFTimeInterval)?
     private var windowStripState: WindowStripState?
-    private var windowStripScrollGesture = WindowStripScrollGesture.idle
     private var scrollEventMonitors: [Any] = []
     private let workspaceHUD = WorkspaceHUD()
     private var icons: [String: NSImage] = [:]
@@ -400,12 +399,10 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         row.arrangedSubviews.lazy.compactMap { ($0 as? WorkspaceButton)?.windowStrip }.first
     }
 
-    private func render() {
+    private func render(preservingWindowStripPosition: Bool = true) {
         guard let statusButton = item.button else { return }
-        // The strip may have moved since the last notification, even without user scrolling.
-        if windowStripState?.position != nil, let activeWindowStrip {
-            windowStripState?.position = activeWindowStrip.position
-        }
+        // Capture the live offset, including any animation progress, before replacing the strip.
+        let previousPosition = preservingWindowStripPosition ? activeWindowStrip?.position : nil
         for view in row.arrangedSubviews {
             row.removeArrangedSubview(view)
             view.removeFromSuperview()
@@ -415,7 +412,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusButton.toolTip = status
         if let status {
             windowStripState = nil
-            windowStripScrollGesture = .idle
             statusButton.image = state == nil && connectionStatusKey == "status.connecting"
                 ? connectingIcon : warningIcon
             statusButton.imagePosition = .imageOnly
@@ -438,10 +434,11 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let stripWorkspace = showsActiveWorkspaceWindows ? workspaces.first(where: \.active).map {
             WindowStripWorkspace(monitorID: monitor.id, workspace: $0)
         } : nil
-        if windowStripState?.workspace != stripWorkspace {
+        let sameStripWorkspace = windowStripState?.workspace == stripWorkspace
+        if !sameStripWorkspace {
             windowStripState = stripWorkspace.map { WindowStripState(workspace: $0) }
-            windowStripScrollGesture = .idle
         }
+        let positionToRestore = sameStripWorkspace ? previousPosition : nil
         for workspace in workspaces {
             let button = WorkspaceButton(
                 workspace: workspace, display: monitor.display,
@@ -449,15 +446,11 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 hidesLabelWithIcon: hidesLabelsWithIcons,
                 showsActiveWorkspaceWindows: showsActiveWorkspaceWindows,
                 windowStripMaximumWidth: windowStripMaximumWidth,
-                windowStripPosition: workspace.active ? windowStripState?.position : nil,
+                windowStripPosition: workspace.active ? positionToRestore : nil,
                 icon: { [weak self] appID in self?.icon(for: appID) ?? NSWorkspace.shared.icon(for: .application) }
             )
-            if workspace.active {
-                let position = button.windowStrip?.position
-                if windowStripState?.position?.focusedWindowID != position?.focusedWindowID {
-                    windowStripScrollGesture = .idle
-                }
-                windowStripState?.position = position
+            if workspace.active, positionToRestore?.focusedWindowID != button.windowStrip?.position.focusedWindowID {
+                windowStripState?.gesture = .idle
             }
             button.target = self
             button.action = #selector(switchWorkspace(_:))
@@ -487,21 +480,19 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard item.menu == nil, let window = item.button?.window,
               let strip = activeWindowStrip,
               strip.canScroll else {
-            windowStripScrollGesture = .idle
+            windowStripState?.gesture = .idle
             return false
         }
         let point = event.window === window
             ? event.locationInWindow : window.convertPoint(fromScreen: NSEvent.mouseLocation)
         let horizontalDelta = event.scrollingDeltaX
-        guard windowStripScrollGesture.shouldScroll(
+        guard windowStripState?.gesture.shouldScroll(
             phase: event.phase, momentum: event.momentumPhase, isOverStrip: strip.contains(point),
             hasHorizontalMovement: horizontalDelta != 0, hasPreciseDeltas: event.hasPreciseScrollingDeltas
-        ) else { return false }
+        ) == true else { return false }
 
         let scale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 18
-        guard strip.scrollHorizontally(by: -horizontalDelta * scale) else { return false }
-        windowStripState?.position = strip.position
-        return true
+        return strip.scrollHorizontally(by: -horizontalDelta * scale)
     }
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
@@ -611,7 +602,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func showMenu() {
         guard item.menu == nil, let button = item.button else { return }
-        windowStripScrollGesture = .idle
+        windowStripState?.gesture = .idle
         let menu = NSMenu()
         menu.delegate = self
         let about = menu.addItem(withTitle: localized("menu.about"), action: #selector(showAboutPanel), keyEquivalent: "")
@@ -646,20 +637,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menuItem.representedObject = setting.rawValue
             menuItem.state = setting.isEnabled ? .on : .off
             if setting == .activeWorkspaceWindows {
-                let title = localized("menu.windowStripMaximumWidth")
-                let widthView = WindowStripWidthMenuView(title: title, width: WindowStripWidth.value) { [weak self] width in
-                    guard let self, width != WindowStripWidth.value else { return }
-                    WindowStripWidth.value = width
-                    self.windowStripState?.position = nil
-                    self.windowStripScrollGesture = .idle
-                    self.render()
-                }
-                let widthItem = NSMenuItem(
-                    title: title, action: #selector(WindowStripWidthMenuView.focusSlider), keyEquivalent: ""
-                )
-                widthItem.target = widthView
-                widthItem.view = widthView
-                menu.addItem(widthItem)
+                menu.addItem(makeWindowStripWidthItem())
             }
         }
         menu.addItem(.separator())
@@ -675,6 +653,22 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         quit.target = NSApp
         item.menu = menu
         button.performClick(nil)
+    }
+
+    private func makeWindowStripWidthItem() -> NSMenuItem {
+        let title = localized("menu.windowStripMaximumWidth")
+        let view = WindowStripWidthMenuView(title: title, width: WindowStripWidth.value) { [weak self] width in
+            guard let self, width != WindowStripWidth.value else { return }
+            WindowStripWidth.value = width
+            self.windowStripState?.gesture = .idle
+            self.render(preservingWindowStripPosition: false)
+        }
+        let item = NSMenuItem(
+            title: title, action: #selector(WindowStripWidthMenuView.focusSlider), keyEquivalent: ""
+        )
+        item.target = view
+        item.view = view
+        return item
     }
 
     func menuDidClose(_ menu: NSMenu) {

@@ -105,7 +105,7 @@ final class WorkspaceHUD {
             stack.alignment = .centerY
             stack.spacing = 9
             let imageView = NSImageView(image: icon)
-            let size: CGFloat = 22
+            let size: CGFloat = 28
             imageView.imageScaling = .scaleProportionallyUpOrDown
             imageView.contentTintColor = .labelColor
             stack.insertArrangedSubview(imageView, at: 0)
@@ -127,6 +127,8 @@ final class WorkspaceHUD {
     ) {
         let appIconSize: CGFloat = 64
         let iconInset: CGFloat = 6
+        let highlightInset: CGFloat = 3
+        let appIconCornerRadius: CGFloat = 14
         let iconTileSize = appIconSize + 2 * iconInset
         let iconSpacing: CGFloat = 2
         let rowInset: CGFloat = 4
@@ -141,11 +143,12 @@ final class WorkspaceHUD {
                         .resizable()
                         .scaledToFit()
                         .frame(width: appIconSize, height: appIconSize)
-                        .padding(iconInset)
+                        .padding(highlightInset)
                         .background(
                             selected ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.clear),
-                            in: .rect(cornerRadius: 12)
+                            in: .rect(cornerRadius: appIconCornerRadius + highlightInset, style: .continuous)
                         )
+                        .padding(iconInset - highlightInset)
                 )
                 view.sizingOptions = []
                 NSLayoutConstraint.activate([

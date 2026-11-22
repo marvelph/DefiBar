@@ -8,8 +8,9 @@ if [ "$#" -ne 2 ] || ! printf '%s\n' "$1" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' 
     exit 1
 fi
 
-if [ -z "${DEFI_BAR_SIGNING_IDENTITY:-}" ]; then
-    echo "Set DEFI_BAR_SIGNING_IDENTITY to a Developer ID Application certificate name or SHA-1 hash." >&2
+signing_identity=${DEFI_BAR_SIGNING_IDENTITY:-}
+if [ -z "$signing_identity" ]; then
+    echo "Set DEFI_BAR_SIGNING_IDENTITY to a Developer ID Application certificate name or SHA-1 hash, or to - for ad-hoc signing." >&2
     exit 1
 fi
 
@@ -35,6 +36,7 @@ assets="$stage/assets"
 mkdir "$assets"
 
 DEFI_BAR_VERSION="$version" DEFI_BAR_BUILD_NUMBER="$build_number" \
+    DEFI_BAR_SIGNING_IDENTITY="$signing_identity" \
     SPARKLE_PUBLIC_ED_KEY="$public_key" SPARKLE_FEED_URL="$release_url/latest/download/appcast.xml" \
     DEFI_BAR_OUTPUT_DIR="$stage/build" \
     ./build-app.sh --arch arm64 --arch x86_64

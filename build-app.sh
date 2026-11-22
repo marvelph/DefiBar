@@ -75,7 +75,7 @@ if [ -n "$public_key" ]; then
     plutil -insert SURequireSignedFeed -bool YES "$plist"
 fi
 
-if [ -n "$signing_identity" ]; then
+if [ -n "$signing_identity" ] && [ "$signing_identity" != "-" ]; then
     sparkle_framework="$contents/Frameworks/Sparkle.framework"
     sparkle_version="$sparkle_framework/Versions/Current"
     codesign --force --sign "$signing_identity" --timestamp --options runtime \

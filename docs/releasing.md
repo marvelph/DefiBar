@@ -1,6 +1,6 @@
 # Releasing DefiBar with Sparkle
 
-Release builds sign the app bundle and Sparkle helpers with your Developer ID Application certificate. Install the certificate and its private key in the signing Mac’s keychain. Run `security find-identity -v -p codesigning` to find the certificate name or SHA-1 hash. This workflow produces a signed release without submitting it for notarization.
+Release builds support ad-hoc and Developer ID code signing. For Developer ID signing, install the Developer ID Application certificate and its private key in the signing Mac’s keychain. Run `security find-identity -v -p codesigning` to find its name or SHA-1 hash. The script uses that identity to sign the app bundle and Sparkle helpers. Neither option submits the app for notarization.
 
 Use the same DefiBar EdDSA key for every release, including when switching to Developer ID signing. Sparkle verifies the signed appcast and ZIP using the public key embedded in the app. Generate this key once on the signing Mac. Sparkle stores the private key in the login keychain. Keep a secure backup of the key.
 
@@ -10,6 +10,12 @@ swift package resolve
 ```
 
 Build the release with a new version and a build number higher than the previous release. The script reads the existing key and produces a universal ZIP and a signed appcast.
+
+```sh
+DEFI_BAR_SIGNING_IDENTITY=- ./build-release.sh 0.5.0 5
+```
+
+To use Developer ID signing, specify the certificate instead of `-`.
 
 ```sh
 DEFI_BAR_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' ./build-release.sh 0.5.0 5

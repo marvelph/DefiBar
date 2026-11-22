@@ -1,6 +1,7 @@
 import AppKit
 import ServiceManagement
 import Sparkle
+import SwiftUI
 import UniformTypeIdentifiers
 
 func localized(_ key: String) -> String {
@@ -145,36 +146,6 @@ private final class StatusRow: NSStackView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-private enum DisplaySetting: String, CaseIterable {
-    // Raw values are UserDefaults keys and stay stable across releases. Case order controls the menu.
-    case inactiveWorkspaces = "showsInactiveWorkspacesInMenuBar"
-    case workspaceIcons = "showsWorkspaceIconsInMenuBar"
-    case hideWorkspaceLabelsWithIcons = "hidesWorkspaceLabelsWithIconsInMenuBar"
-    case workspaceNames = "showsWorkspaceNames"
-    case workspaceNumberSign = "showsWorkspaceNumberSign"
-    case trailingWorkspaceIcon = "showsTrailingWorkspaceAsPlus"
-    case activeWorkspaceWindows = "showsActiveWorkspaceWindowIconsInMenuBar"
-    case workspaceSwitchHUD = "showsWorkspaceInfoOnSwitch"
-    case applicationsInWorkspaceHUD = "showsAppIconsInWorkspaceInfo"
-
-    var menuTitleKey: String {
-        switch self {
-        case .inactiveWorkspaces: return "menu.showInactiveWorkspaces"
-        case .workspaceIcons: return "menu.showWorkspaceIcons"
-        case .hideWorkspaceLabelsWithIcons: return "menu.hideWorkspaceLabelsWithIcons"
-        case .workspaceNames: return "menu.showWorkspaceNames"
-        case .workspaceNumberSign: return "menu.showWorkspaceNumberSign"
-        case .trailingWorkspaceIcon: return "menu.showTrailingWorkspaceIcon"
-        case .activeWorkspaceWindows: return "menu.showActiveWorkspaceWindows"
-        case .workspaceSwitchHUD: return "menu.showWorkspaceInfoOnSwitch"
-        case .applicationsInWorkspaceHUD: return "menu.showApplicationsInWorkspaceInfo"
-        }
-    }
-
-    var defaultValue: Bool { self != .hideWorkspaceLabelsWithIcons }
-    var isEnabled: Bool { UserDefaults.standard.bool(forKey: rawValue) }
-}
-
 @MainActor
 final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private struct WindowStripWorkspace: Equatable {
@@ -209,6 +180,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var windowStripState: WindowStripState?
     private var scrollEventMonitors: [Any] = []
     private let workspaceHUD = WorkspaceHUD()
+    private var settingsWindow: NSWindow?
     private var icons: [String: NSImage] = [:]
     private var connectionStatusKey = "status.connecting"
     private lazy var updaterController: SPUStandardUpdaterController? = {
@@ -592,7 +564,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func toggleLaunchAtLogin() {
+    private func toggleLaunchAtLogin() {
         let service = SMAppService.mainApp
         do {
             switch service.status {
@@ -612,21 +584,10 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func showAboutPanel() {
-        NSApp.activate()
-        NSApp.orderFrontStandardAboutPanel(nil)
-    }
-
-    @objc private func toggleDisplaySetting(_ sender: NSMenuItem) {
-        guard let key = sender.representedObject as? String, let setting = DisplaySetting(rawValue: key) else {
-            return
-        }
-
-        let enabled = !setting.isEnabled
-        UserDefaults.standard.set(enabled, forKey: key)
+    private func displaySettingChanged(_ setting: DisplaySetting) {
         switch setting {
         case .workspaceSwitchHUD:
-            if !enabled { workspaceHUD.dismiss() }
+            if !setting.isEnabled { workspaceHUD.dismiss() }
         case .applicationsInWorkspaceHUD:
             break
         default:
@@ -634,13 +595,40 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    private func setWindowStripWidth(_ width: Int) {
+        guard width != WindowStripWidth.value else { return }
+        WindowStripWidth.value = width
+        windowStripState?.gesture = .idle
+        render(preservingWindowStripPosition: false)
+    }
+
+    @objc private func openDefiBarSettings() {
+        if let settingsWindow {
+            NSApp.activate()
+            settingsWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let settingsView = DefiBarSettingsView(
+            onLoginToggle: { [weak self] in self?.toggleLaunchAtLogin() },
+            onDisplayChange: { [weak self] setting in self?.displaySettingChanged(setting) },
+            onWidthChange: { [weak self] width in self?.setWindowStripWidth(width) }
+        )
+        let window = NSWindow(contentViewController: NSHostingController(rootView: settingsView))
+        window.styleMask = [.titled, .closable]
+        window.title = localized("settings.title")
+        window.isReleasedWhenClosed = false
+        window.center()
+        settingsWindow = window
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
+    }
+
     private func showMenu() {
         guard item.menu == nil, let button = item.button else { return }
         windowStripState?.gesture = .idle
         let menu = NSMenu()
         menu.delegate = self
-        let about = menu.addItem(withTitle: localized("menu.about"), action: #selector(showAboutPanel), keyEquivalent: "")
-        about.target = self
         if let updaterController {
             let update = menu.addItem(
                 withTitle: localized("menu.checkForUpdates"),
@@ -649,31 +637,12 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             )
             update.target = updaterController
         }
-        menu.addItem(.separator())
-        let login = menu.addItem(
-            withTitle: localized("menu.launchAtLogin"),
-            action: #selector(toggleLaunchAtLogin),
+        let preferences = menu.addItem(
+            withTitle: localized("menu.defiBarSettings"),
+            action: #selector(openDefiBarSettings),
             keyEquivalent: ""
         )
-        login.target = self
-        switch SMAppService.mainApp.status {
-        case .enabled: login.state = .on
-        case .requiresApproval: login.state = .mixed
-        default: login.state = .off
-        }
-        for setting in DisplaySetting.allCases {
-            let menuItem = menu.addItem(
-                withTitle: localized(setting.menuTitleKey),
-                action: #selector(toggleDisplaySetting(_:)),
-                keyEquivalent: ""
-            )
-            menuItem.target = self
-            menuItem.representedObject = setting.rawValue
-            menuItem.state = setting.isEnabled ? .on : .off
-            if setting == .activeWorkspaceWindows {
-                menu.addItem(makeWindowStripWidthItem())
-            }
-        }
+        preferences.target = self
         menu.addItem(.separator())
         if let status = unavailableStatus {
             let statusItem = menu.addItem(withTitle: status, action: nil, keyEquivalent: "")
@@ -695,22 +664,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         quit.target = NSApp
         item.menu = menu
         button.performClick(nil)
-    }
-
-    private func makeWindowStripWidthItem() -> NSMenuItem {
-        let title = localized("menu.windowStripMaximumWidth")
-        let view = WindowStripWidthMenuView(title: title, width: WindowStripWidth.value) { [weak self] width in
-            guard let self, width != WindowStripWidth.value else { return }
-            WindowStripWidth.value = width
-            self.windowStripState?.gesture = .idle
-            self.render(preservingWindowStripPosition: false)
-        }
-        let item = NSMenuItem(
-            title: title, action: #selector(WindowStripWidthMenuView.focusSlider), keyEquivalent: ""
-        )
-        item.target = view
-        item.view = view
-        return item
     }
 
     func menuDidClose(_ menu: NSMenu) {

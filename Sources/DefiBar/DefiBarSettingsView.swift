@@ -34,9 +34,10 @@ enum InactiveWorkspaceLimit {
     static let all = -1
     static let none = 0
     static let counts = 1...5
+    static let defaultValue = 2
 
     static var value: Int {
-        UserDefaults.standard.object(forKey: key) as? Int ?? all
+        UserDefaults.standard.object(forKey: key) as? Int ?? defaultValue
     }
 }
 
@@ -68,7 +69,7 @@ struct DefiBarSettingsView: View {
     let onDisplayReset: () -> Void
 
     @State private var loginStatus = SMAppService.mainApp.status
-    @AppStorage(InactiveWorkspaceLimit.key) private var inactiveWorkspaceLimit = InactiveWorkspaceLimit.all
+    @AppStorage(InactiveWorkspaceLimit.key) private var inactiveWorkspaceLimit = InactiveWorkspaceLimit.defaultValue
     @State private var width = Double(WindowStripWidth.value)
     @State private var isAdjustingWidth = false
 

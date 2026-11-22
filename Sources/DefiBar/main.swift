@@ -358,8 +358,15 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private var visibleWorkspaces: [WorkspaceState.Workspace] {
-        let workspaces = focusedMonitor?.workspaces ?? []
-        return DisplaySetting.inactiveWorkspaces.isEnabled ? workspaces : workspaces.filter(\.active)
+        let workspaces = (focusedMonitor?.workspaces ?? []).sorted { $0.position < $1.position }
+        let limit = InactiveWorkspaceLimit.value
+        guard limit == InactiveWorkspaceLimit.none || InactiveWorkspaceLimit.counts.contains(limit) else {
+            return workspaces
+        }
+        guard let activeIndex = workspaces.firstIndex(where: \.active) else { return [] }
+        let start = max(workspaces.startIndex, activeIndex - limit)
+        let end = min(workspaces.endIndex, activeIndex + limit + 1)
+        return Array(workspaces[start..<end])
     }
 
     private var workspaceLabelStyle: WorkspaceState.Workspace.LabelStyle {
@@ -370,9 +377,9 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
     }
 
-    private var unavailableStatus: String? {
+    private func unavailableStatus(hasVisibleWorkspaces: Bool) -> String? {
         guard state != nil else { return localized(connectionStatusKey) }
-        guard !visibleWorkspaces.isEmpty else { return localized("status.noWorkspaces") }
+        guard hasVisibleWorkspaces else { return localized("status.noWorkspaces") }
         return nil
     }
 
@@ -389,7 +396,8 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             view.removeFromSuperview()
         }
 
-        let status = unavailableStatus
+        let workspaces = visibleWorkspaces
+        let status = unavailableStatus(hasVisibleWorkspaces: !workspaces.isEmpty)
         statusButton.toolTip = status
         if let status {
             windowStripState = nil
@@ -411,7 +419,6 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let hidesLabelsWithIcons = DisplaySetting.hideWorkspaceLabelsWithIcons.isEnabled
         let showsActiveWorkspaceWindows = DisplaySetting.activeWorkspaceWindows.isEnabled
         let windowStripMaximumWidth = CGFloat(WindowStripWidth.value)
-        let workspaces = visibleWorkspaces.sorted(by: { $0.position < $1.position })
         let stripWorkspace = showsActiveWorkspaceWindows ? workspaces.first(where: \.active).map {
             WindowStripWorkspace(monitorID: monitor.id, workspace: $0)
         } : nil
@@ -607,6 +614,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for setting in DisplaySetting.allCases {
             UserDefaults.standard.removeObject(forKey: setting.rawValue)
         }
+        UserDefaults.standard.removeObject(forKey: InactiveWorkspaceLimit.key)
         WindowStripWidth.reset()
         workspaceHUD.dismiss()
 
@@ -625,6 +633,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let settingsView = DefiBarSettingsView(
             onLoginToggle: { [weak self] in self?.toggleLaunchAtLogin() },
             onDisplayChange: { [weak self] setting in self?.displaySettingChanged(setting) },
+            onInactiveWorkspaceLimitChange: { [weak self] in self?.render() },
             onWidthChange: { [weak self] width in self?.setWindowStripWidth(width) },
             onDisplayReset: { [weak self] in self?.resetDisplaySettings() }
         )
@@ -658,7 +667,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         preferences.target = self
         menu.addItem(.separator())
-        if let status = unavailableStatus {
+        if let status = unavailableStatus(hasVisibleWorkspaces: !visibleWorkspaces.isEmpty) {
             let statusItem = menu.addItem(withTitle: status, action: nil, keyEquivalent: "")
             statusItem.isEnabled = false
             menu.addItem(.separator())

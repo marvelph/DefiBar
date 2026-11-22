@@ -17,7 +17,9 @@
 "settings.workspaceInfo" = "ワークスペース情報";
 "settings.loginApprovalRequired" = "ログイン時に起動するには、システム設定で DefiBar を許可してください。";
 "settings.launchAtLogin" = "ログイン時に起動";
-"settings.showInactiveWorkspaces" = "非アクティブなワークスペースを表示";
+"settings.inactiveWorkspaceLimit" = "前後それぞれに表示するワークスペース数";
+"settings.noAdjacentWorkspaces" = "なし";
+"settings.allWorkspaces" = "すべて";
 "settings.showWorkspaceIcons" = "ワークスペースアイコンを表示";
 "settings.hideWorkspaceLabelsWithIcons" = "アイコン表示時はワークスペース名・番号を省略";
 "settings.showWorkspaceNames" = "ワークスペース名を表示";

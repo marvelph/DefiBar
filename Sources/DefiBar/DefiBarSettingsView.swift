@@ -3,7 +3,6 @@ import SwiftUI
 
 enum DisplaySetting: String, CaseIterable {
     // Raw values are UserDefaults keys and stay stable across releases.
-    case inactiveWorkspaces = "showsInactiveWorkspacesInMenuBar"
     case workspaceIcons = "showsWorkspaceIconsInMenuBar"
     case hideWorkspaceLabelsWithIcons = "hidesWorkspaceLabelsWithIconsInMenuBar"
     case workspaceNames = "showsWorkspaceNames"
@@ -15,7 +14,6 @@ enum DisplaySetting: String, CaseIterable {
 
     var titleKey: String {
         switch self {
-        case .inactiveWorkspaces: return "settings.showInactiveWorkspaces"
         case .workspaceIcons: return "settings.showWorkspaceIcons"
         case .hideWorkspaceLabelsWithIcons: return "settings.hideWorkspaceLabelsWithIcons"
         case .workspaceNames: return "settings.showWorkspaceNames"
@@ -29,6 +27,17 @@ enum DisplaySetting: String, CaseIterable {
 
     var defaultValue: Bool { self != .hideWorkspaceLabelsWithIcons }
     var isEnabled: Bool { UserDefaults.standard.bool(forKey: rawValue) }
+}
+
+enum InactiveWorkspaceLimit {
+    static let key = "inactiveWorkspaceLimitPerSideInMenuBar"
+    static let all = -1
+    static let none = 0
+    static let counts = 1...5
+
+    static var value: Int {
+        UserDefaults.standard.object(forKey: key) as? Int ?? all
+    }
 }
 
 enum WindowStripWidth {
@@ -54,10 +63,12 @@ enum WindowStripWidth {
 struct DefiBarSettingsView: View {
     let onLoginToggle: () -> Void
     let onDisplayChange: (DisplaySetting) -> Void
+    let onInactiveWorkspaceLimitChange: () -> Void
     let onWidthChange: (Int) -> Void
     let onDisplayReset: () -> Void
 
     @State private var loginStatus = SMAppService.mainApp.status
+    @AppStorage(InactiveWorkspaceLimit.key) private var inactiveWorkspaceLimit = InactiveWorkspaceLimit.all
     @State private var width = Double(WindowStripWidth.value)
     @State private var isAdjustingWidth = false
 
@@ -78,7 +89,19 @@ struct DefiBarSettingsView: View {
             }
 
             Section(localized("settings.menuBar")) {
-                toggle(.inactiveWorkspaces)
+                Picker(localized("settings.inactiveWorkspaceLimit"), selection: Binding(
+                    get: { inactiveWorkspaceLimit },
+                    set: { limit in
+                        inactiveWorkspaceLimit = limit
+                        onInactiveWorkspaceLimitChange()
+                    }
+                )) {
+                    Text(localized("settings.noAdjacentWorkspaces")).tag(InactiveWorkspaceLimit.none)
+                    ForEach(InactiveWorkspaceLimit.counts, id: \.self) { count in
+                        Text(count, format: .number).tag(count)
+                    }
+                    Text(localized("settings.allWorkspaces")).tag(InactiveWorkspaceLimit.all)
+                }
                 toggle(.workspaceIcons)
                 toggle(.hideWorkspaceLabelsWithIcons)
                 toggle(.workspaceNames)

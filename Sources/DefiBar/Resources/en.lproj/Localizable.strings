@@ -17,7 +17,9 @@
 "settings.workspaceInfo" = "Workspace Info";
 "settings.loginApprovalRequired" = "Approve DefiBar in System Settings to launch at login.";
 "settings.launchAtLogin" = "Launch at Login";
-"settings.showInactiveWorkspaces" = "Show Inactive Workspaces";
+"settings.inactiveWorkspaceLimit" = "Workspaces Shown on Either Side";
+"settings.noAdjacentWorkspaces" = "None";
+"settings.allWorkspaces" = "All";
 "settings.showWorkspaceIcons" = "Show Workspace Icons";
 "settings.hideWorkspaceLabelsWithIcons" = "Hide Labels for Workspaces Shown with Icons";
 "settings.showWorkspaceNames" = "Show Workspace Names";

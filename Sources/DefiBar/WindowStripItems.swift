@@ -92,7 +92,7 @@ final class WindowIconSlot: NSView {
             endAngle: 180
         )
         bump.close()
-        activeWorkspaceBorderColor.setFill()
+        NSColor.labelColor.setFill()
         bump.fill()
     }
 }

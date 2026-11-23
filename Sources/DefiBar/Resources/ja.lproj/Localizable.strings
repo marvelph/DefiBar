@@ -33,4 +33,5 @@
 "settings.resetDisplay" = "表示設定を初期値に戻す";
 "settings.about" = "DefiBar について";
 "settings.version" = "バージョン";
+"settings.githubProject" = "GitHub で DefiBar を見る";
 "menu.checkForUpdates" = "アップデートを確認…";

@@ -129,6 +129,10 @@ struct DefiBarSettingsView: View {
                     Text(appVersion)
                         .textSelection(.enabled)
                 }
+                Link(
+                    localized("settings.githubProject"),
+                    destination: URL(string: "https://github.com/marvelph/DefiBar")!
+                )
             }
         }
         .formStyle(.grouped)

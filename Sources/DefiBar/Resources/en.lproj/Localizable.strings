@@ -33,4 +33,5 @@
 "settings.resetDisplay" = "Restore Default Display Settings";
 "settings.about" = "About DefiBar";
 "settings.version" = "Version";
+"settings.githubProject" = "View DefiBar on GitHub";
 "menu.checkForUpdates" = "Check for Updates…";

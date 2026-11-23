@@ -554,6 +554,10 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         changeDefiService("stop")
     }
 
+    @objc private func restartDefi() {
+        changeDefiService("restart")
+    }
+
     private func changeDefiService(_ command: String) {
         guard !changingDefiService else { return }
         changingDefiService = true
@@ -682,6 +686,10 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             withTitle: localized("menu.stopDefi"), action: changingDefiService ? nil : #selector(stopDefi), keyEquivalent: ""
         )
         stop.target = self
+        let restart = menu.addItem(
+            withTitle: localized("menu.restartDefi"), action: changingDefiService ? nil : #selector(restartDefi), keyEquivalent: ""
+        )
+        restart.target = self
         let settings = menu.addItem(withTitle: localized("menu.settings"), action: #selector(openDefiSettings), keyEquivalent: "")
         settings.target = self
         menu.addItem(.separator())

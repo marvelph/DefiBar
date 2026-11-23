@@ -9,6 +9,7 @@
 "menu.defiControls" = "Defi Controls";
 "menu.startDefi" = "Start";
 "menu.stopDefi" = "Quit";
+"menu.restartDefi" = "Restart";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit DefiBar";
 "menu.defiBarSettings" = "DefiBar Settings…";

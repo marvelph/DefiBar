@@ -9,6 +9,7 @@
 "menu.defiControls" = "Defi の操作";
 "menu.startDefi" = "起動";
 "menu.stopDefi" = "終了";
+"menu.restartDefi" = "再起動";
 "menu.settings" = "設定…";
 "menu.quit" = "DefiBar を終了";
 "menu.defiBarSettings" = "DefiBar の設定…";

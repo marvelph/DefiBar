@@ -45,7 +45,7 @@ enum ActiveWorkspaceFrameColor: String, CaseIterable {
     case blue, purple, pink, red, orange, yellow, green
 
     static let key = "activeWorkspaceFrameColor"
-    static let defaultValue: Self = .blue
+    static let defaultValue: Self = .purple
 
     static var value: Self {
         UserDefaults.standard.string(forKey: key).flatMap(Self.init(rawValue:)) ?? defaultValue

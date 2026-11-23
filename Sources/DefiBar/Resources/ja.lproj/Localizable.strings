@@ -6,9 +6,10 @@
 "status.cliMissing" = "Defi CLI が見つかりません";
 "status.connectionFailed" = "Defi に接続できません";
 "status.noWorkspaces" = "表示するワークスペースがありません";
-"menu.startDefi" = "Defi を起動";
-"menu.stopDefi" = "Defi を終了";
-"menu.settings" = "Defi の設定…";
+"menu.defiControls" = "Defi の操作";
+"menu.startDefi" = "起動";
+"menu.stopDefi" = "終了";
+"menu.settings" = "設定…";
 "menu.quit" = "DefiBar を終了";
 "menu.defiBarSettings" = "設定…";
 "settings.title" = "DefiBar の設定";

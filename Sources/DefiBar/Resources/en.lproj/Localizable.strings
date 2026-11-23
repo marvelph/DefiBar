@@ -6,9 +6,10 @@
 "status.cliMissing" = "Defi CLI not found";
 "status.connectionFailed" = "Could not connect to Defi";
 "status.noWorkspaces" = "No workspaces to display";
-"menu.startDefi" = "Start Defi";
-"menu.stopDefi" = "Quit Defi";
-"menu.settings" = "Defi Settings…";
+"menu.defiControls" = "Defi Controls";
+"menu.startDefi" = "Start";
+"menu.stopDefi" = "Quit";
+"menu.settings" = "Settings…";
 "menu.quit" = "Quit DefiBar";
 "menu.defiBarSettings" = "Settings…";
 "settings.title" = "DefiBar Settings";

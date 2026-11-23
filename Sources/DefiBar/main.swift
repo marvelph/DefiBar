@@ -672,6 +672,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             statusItem.isEnabled = false
             menu.addItem(.separator())
         }
+        menu.addItem(.sectionHeader(title: localized("menu.defiControls")))
         let start = menu.addItem(
             withTitle: localized("menu.startDefi"), action: changingDefiService ? nil : #selector(startDefi), keyEquivalent: ""
         )

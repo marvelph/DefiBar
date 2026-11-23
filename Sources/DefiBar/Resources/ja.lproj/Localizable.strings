@@ -15,7 +15,7 @@
 "settings.title" = "DefiBar の設定";
 "settings.general" = "一般";
 "settings.menuBar" = "メニューバー";
-"settings.workspaceInfo" = "ワークスペース情報";
+"settings.workspaceInfo" = "ワークスペース切り替え時の表示";
 "settings.loginApprovalRequired" = "ログイン時に起動するには、システム設定で DefiBar を許可してください。";
 "settings.launchAtLogin" = "ログイン時に起動";
 "settings.inactiveWorkspaceLimit" = "前後それぞれに表示するワークスペース数";
@@ -29,8 +29,8 @@
 "settings.showActiveWorkspaceWindows" = "アクティブなワークスペースのウインドウを表示";
 "settings.windowStripMaximumWidth" = "ウインドウ列の最大幅";
 "settings.windowStripWidthValue" = "%ld pt";
-"settings.showWorkspaceInfoOnSwitch" = "切り替え時にワークスペース情報を表示";
-"settings.showApplicationsInWorkspaceInfo" = "ワークスペース情報にアプリケーションを表示";
+"settings.showWorkspaceInfoOnSwitch" = "切り替え先の情報を画面に一時表示";
+"settings.showApplicationsInWorkspaceInfo" = "アプリケーションのアイコンも表示";
 "settings.resetDisplay" = "表示設定を初期値に戻す";
 "settings.about" = "DefiBar について";
 "settings.version" = "バージョン";

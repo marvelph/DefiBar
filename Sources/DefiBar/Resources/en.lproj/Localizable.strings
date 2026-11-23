@@ -15,7 +15,7 @@
 "settings.title" = "DefiBar Settings";
 "settings.general" = "General";
 "settings.menuBar" = "Menu Bar";
-"settings.workspaceInfo" = "Workspace Info";
+"settings.workspaceInfo" = "When Switching Workspaces";
 "settings.loginApprovalRequired" = "Approve DefiBar in System Settings to launch at login.";
 "settings.launchAtLogin" = "Launch at Login";
 "settings.inactiveWorkspaceLimit" = "Workspaces Shown on Either Side";
@@ -29,8 +29,8 @@
 "settings.showActiveWorkspaceWindows" = "Show Windows in the Active Workspace";
 "settings.windowStripMaximumWidth" = "Maximum Window Strip Width";
 "settings.windowStripWidthValue" = "%ld pt";
-"settings.showWorkspaceInfoOnSwitch" = "Show Workspace Info When Switching";
-"settings.showApplicationsInWorkspaceInfo" = "Show Applications in Workspace Info";
+"settings.showWorkspaceInfoOnSwitch" = "Briefly Show Workspace Info on Screen";
+"settings.showApplicationsInWorkspaceInfo" = "Also Show App Icons";
 "settings.resetDisplay" = "Restore Default Display Settings";
 "settings.about" = "About DefiBar";
 "settings.version" = "Version";

@@ -11,7 +11,7 @@
 "menu.stopDefi" = "Quit";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit DefiBar";
-"menu.defiBarSettings" = "Settings…";
+"menu.defiBarSettings" = "DefiBar Settings…";
 "settings.title" = "DefiBar Settings";
 "settings.general" = "General";
 "settings.menuBar" = "Menu Bar";

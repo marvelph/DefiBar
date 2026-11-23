@@ -1,6 +1,8 @@
 import AppKit
 
-let activeWorkspaceBorderColor = NSColor.systemBlue.withAlphaComponent(0.65)
+var activeWorkspaceBorderColor: NSColor {
+    ActiveWorkspaceFrameColor.value.color.withAlphaComponent(0.65)
+}
 let workspaceButtonHeight: CGFloat = 22
 let statusIconSize: CGFloat = 14
 

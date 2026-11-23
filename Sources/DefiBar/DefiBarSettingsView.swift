@@ -41,6 +41,39 @@ enum InactiveWorkspaceLimit {
     }
 }
 
+enum ActiveWorkspaceFrameColor: String, CaseIterable {
+    case blue, purple, pink, red, orange, yellow, green
+
+    static let key = "activeWorkspaceFrameColor"
+    static let defaultValue: Self = .blue
+
+    static var value: Self {
+        UserDefaults.standard.string(forKey: key).flatMap(Self.init(rawValue:)) ?? defaultValue
+    }
+
+    var color: NSColor {
+        switch self {
+        case .blue: return .systemBlue
+        case .purple: return .systemPurple
+        case .pink: return .systemPink
+        case .red: return .systemRed
+        case .orange: return .systemOrange
+        case .yellow: return .systemYellow
+        case .green: return .systemGreen
+        }
+    }
+
+    var swatch: NSImage {
+        let image = NSImage(size: NSSize(width: 14, height: 14), flipped: false) { rect in
+            color.setFill()
+            NSBezierPath(ovalIn: rect.insetBy(dx: 2, dy: 2)).fill()
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
+}
+
 enum WindowStripWidth {
     static let range = 72...288
     static let defaultValue = 144
@@ -64,12 +97,13 @@ enum WindowStripWidth {
 struct DefiBarSettingsView: View {
     let onLoginToggle: () -> Void
     let onDisplayChange: (DisplaySetting) -> Void
-    let onInactiveWorkspaceLimitChange: () -> Void
+    let onMenuBarDisplayChange: () -> Void
     let onWidthChange: (Int) -> Void
     let onDisplayReset: () -> Void
 
     @State private var loginStatus = SMAppService.mainApp.status
     @AppStorage(InactiveWorkspaceLimit.key) private var inactiveWorkspaceLimit = InactiveWorkspaceLimit.defaultValue
+    @AppStorage(ActiveWorkspaceFrameColor.key) private var frameColor = ActiveWorkspaceFrameColor.defaultValue
     @State private var width = Double(WindowStripWidth.value)
     @State private var isAdjustingWidth = false
 
@@ -94,7 +128,7 @@ struct DefiBarSettingsView: View {
                     get: { inactiveWorkspaceLimit },
                     set: { limit in
                         inactiveWorkspaceLimit = limit
-                        onInactiveWorkspaceLimitChange()
+                        onMenuBarDisplayChange()
                     }
                 )) {
                     Text(localized("settings.noAdjacentWorkspaces")).tag(InactiveWorkspaceLimit.none)
@@ -102,6 +136,22 @@ struct DefiBarSettingsView: View {
                         Text(count, format: .number).tag(count)
                     }
                     Text(localized("settings.allWorkspaces")).tag(InactiveWorkspaceLimit.all)
+                }
+                Picker(localized("settings.activeWorkspaceFrameColor"), selection: Binding(
+                    get: { frameColor },
+                    set: { color in
+                        frameColor = color
+                        onMenuBarDisplayChange()
+                    }
+                )) {
+                    ForEach(ActiveWorkspaceFrameColor.allCases, id: \.self) { color in
+                        Label {
+                            Text(localized("settings.frameColor.\(color.rawValue)"))
+                        } icon: {
+                            Image(nsImage: color.swatch)
+                        }
+                        .tag(color)
+                    }
                 }
                 toggle(.workspaceIcons)
                 toggle(.hideWorkspaceLabelsWithIcons)

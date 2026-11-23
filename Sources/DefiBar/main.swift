@@ -615,6 +615,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UserDefaults.standard.removeObject(forKey: setting.rawValue)
         }
         UserDefaults.standard.removeObject(forKey: InactiveWorkspaceLimit.key)
+        UserDefaults.standard.removeObject(forKey: ActiveWorkspaceFrameColor.key)
         WindowStripWidth.reset()
         workspaceHUD.dismiss()
 
@@ -633,7 +634,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let settingsView = DefiBarSettingsView(
             onLoginToggle: { [weak self] in self?.toggleLaunchAtLogin() },
             onDisplayChange: { [weak self] setting in self?.displaySettingChanged(setting) },
-            onInactiveWorkspaceLimitChange: { [weak self] in self?.render() },
+            onMenuBarDisplayChange: { [weak self] in self?.render() },
             onWidthChange: { [weak self] width in self?.setWindowStripWidth(width) },
             onDisplayReset: { [weak self] in self?.resetDisplaySettings() }
         )

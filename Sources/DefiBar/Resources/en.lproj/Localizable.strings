@@ -21,6 +21,14 @@
 "settings.inactiveWorkspaceLimit" = "Workspaces Shown on Either Side";
 "settings.noAdjacentWorkspaces" = "None";
 "settings.allWorkspaces" = "All";
+"settings.activeWorkspaceFrameColor" = "Active Workspace Frame Color";
+"settings.frameColor.blue" = "Blue";
+"settings.frameColor.purple" = "Purple";
+"settings.frameColor.pink" = "Pink";
+"settings.frameColor.red" = "Red";
+"settings.frameColor.orange" = "Orange";
+"settings.frameColor.yellow" = "Yellow";
+"settings.frameColor.green" = "Green";
 "settings.showWorkspaceIcons" = "Show Workspace Icons";
 "settings.hideWorkspaceLabelsWithIcons" = "Hide Labels for Workspaces Shown with Icons";
 "settings.showWorkspaceNames" = "Show Workspace Names";

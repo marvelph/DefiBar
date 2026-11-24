@@ -146,6 +146,17 @@ private final class StatusRow: NSStackView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
+private final class SettingsWindow: NSWindow {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        guard modifiers == .command, event.charactersIgnoringModifiers?.lowercased() == "w" else {
+            return super.performKeyEquivalent(with: event)
+        }
+        performClose(nil)
+        return true
+    }
+}
+
 @MainActor
 final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private struct WindowStripWorkspace: Equatable {
@@ -642,7 +653,7 @@ final class DefiBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             onWidthChange: { [weak self] width in self?.setWindowStripWidth(width) },
             onDisplayReset: { [weak self] in self?.resetDisplaySettings() }
         )
-        let window = NSWindow(contentViewController: NSHostingController(rootView: settingsView))
+        let window = SettingsWindow(contentViewController: NSHostingController(rootView: settingsView))
         window.styleMask = [.titled, .closable]
         window.title = localized("settings.title")
         window.isReleasedWhenClosed = false
